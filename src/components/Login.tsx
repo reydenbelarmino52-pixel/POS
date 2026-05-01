@@ -30,7 +30,7 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await api.post('/auth/login', { username, password });
-      login(res.data.token, res.data.user);
+      login(res.data.token, res.data.user, res.data.stores);
     } catch (err: any) {
       const apiError = err.response?.data?.errors?.[0]?.msg || err.response?.data?.error || 'Login failed';
       setError(apiError);

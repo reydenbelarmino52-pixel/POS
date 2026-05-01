@@ -13,7 +13,9 @@ import {
   Clock,
   Settings,
   Sparkles,
-  Receipt
+  Receipt,
+  Store,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -24,7 +26,7 @@ interface ShellProps {
 }
 
 export default function Shell({ children }: ShellProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, currentStore, stores } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const navigate = useNavigate();
@@ -98,11 +100,29 @@ export default function Shell({ children }: ShellProps) {
             <div className="w-10 h-10 bg-pink-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-pink-200">
               <span className="text-white font-black text-sm">CT</span>
             </div>
-            Cathtea POS
+            {currentStore?.name || 'Cathtea POS'}
           </h1>
         </div>
         
         <nav className="flex-1 px-6 space-y-3">
+          <div className="px-4 mb-8">
+             <button 
+              onClick={() => navigate('/select-store')}
+              className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:border-pink-300 hover:bg-white transition-all group"
+             >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white border border-slate-200 rounded-xl flex items-center justify-center group-hover:bg-pink-50 group-hover:border-pink-200">
+                    <Store className="w-4 h-4 text-slate-400 group-hover:text-pink-500" />
+                  </div>
+                  <div className="text-left overflow-hidden">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Node</p>
+                    <p className="text-xs font-black text-slate-900 uppercase italic truncate">{currentStore?.name}</p>
+                  </div>
+                </div>
+                <RefreshCw className="w-3 h-3 text-slate-300 group-hover:text-pink-500" />
+             </button>
+          </div>
+
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-4 mb-4">Core Channels</p>
           {filteredNav.map((item) => (
             <NavLink

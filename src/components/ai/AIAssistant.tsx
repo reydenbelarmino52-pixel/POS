@@ -9,10 +9,11 @@ export default function AIAssistant() {
   const [insight, setInsight] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
+  const { currentStore } = useAuth();
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentStore]);
 
   const fetchData = async () => {
     try {
@@ -27,13 +28,13 @@ export default function AIAssistant() {
   };
 
   const generateInsight = async () => {
-    if (!data) return;
+    if (!data || !currentStore) return;
     setLoading(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       const prompt = `
-        You are an expert retail business analyst for Cathtea, a premium Milk Tea and Quick Bites shop. 
+        You are an expert retail business analyst for Cathtea, specifically for the branch: "${currentStore.name}".
         Analyze the following business data and provide 3-4 professional, actionable insights suited for a specialty tea and snack business.
         Focus on:
         1. Low stock items that need reordering.
@@ -42,7 +43,7 @@ export default function AIAssistant() {
         4. Suggestions for promotions or category improvements.
 
         Data:
-        - Products: ${JSON.stringify(data.products.map((p: any) => ({ name: p.name, stock: p.stock, threshold: p.low_stock_threshold })))}
+        - Products: ${JSON.stringify(data.products.map((p: any) => ({ name: p.name, stock: p.stock, threshold: p.lowStockThreshold })))}
         - Best Sellers: ${JSON.stringify(data.analytics.bestSellers)}
         - Recent Daily Revenue: ${JSON.stringify(data.analytics.daily.slice(0, 7))}
 

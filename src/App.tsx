@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Login from './components/Login';
+import SelectStore from './components/SelectStore';
+import CreateStore from './components/CreateStore';
 import Shell from './components/layout/Shell';
 import Cashier from './components/pos/Cashier';
 import Inventory from './components/admin/Inventory';
@@ -11,11 +13,12 @@ import Shifts from './components/admin/Shifts';
 import AIAssistant from './components/ai/AIAssistant';
 
 function PrivateRoute({ children, role }: { children: React.ReactNode, role?: string }) {
-  const { user, isLoading } = useAuth();
+  const { user, currentStore, isLoading } = useAuth();
   
   if (isLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-500 uppercase tracking-[0.5em] italic">Initializing Cathtea Terminal...</div>;
   if (!user) return <Navigate to="/login" />;
-  if (role && user.role !== role && user.role !== 'admin') return <Navigate to="/" />;
+  if (!currentStore) return <Navigate to="/select-store" />;
+  if (role && user.role !== role && user.role !== 'admin') return <Navigate to="/pos" />;
   
   return <Shell>{children}</Shell>;
 }
@@ -26,6 +29,8 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/select-store" element={<SelectStore />} />
+          <Route path="/create-store" element={<CreateStore />} />
           
           <Route path="/" element={
             <PrivateRoute role="admin">
