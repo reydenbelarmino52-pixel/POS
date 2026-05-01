@@ -37,28 +37,28 @@ export default function CreateStore() {
       >
         <button 
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-pink-500 transition-colors mb-10"
+          className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-pink-500 transition-colors mb-10"
         >
           <ArrowLeft className="w-3 h-3" />
-          Return to Registry
+          Back to Store List
         </button>
 
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-pink-500/20">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-black text-slate-900 uppercase italic tracking-tight">Deploy New Unit</h1>
-          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] mt-2">Initialize your next business location</p>
+          <h1 className="text-3xl font-bold text-slate-900 uppercase tracking-tight">Add New Store</h1>
+          <p className="text-slate-400 font-semibold text-[10px] uppercase tracking-[0.2em] mt-2">Initialize your next business location</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="space-y-3">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Store Identity</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Store Name</label>
             <input 
               type="text"
               required
-              placeholder="e.g. CATHTEA - DOWNTOWN BRANCH"
-              className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-black text-sm placeholder:text-slate-300 placeholder:italic placeholder:font-normal uppercase italic tracking-tight"
+              placeholder="e.g. Cathtea - Downtown Branch"
+              className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-bold text-sm placeholder:text-slate-300 placeholder:font-normal uppercase tracking-tight"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -67,10 +67,10 @@ export default function CreateStore() {
           <button 
             type="submit"
             disabled={loading || !name.trim()}
-            className="w-full py-5 bg-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-pink-400 disabled:bg-slate-100 disabled:text-slate-300 transition-all shadow-xl shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0"
+            className="w-full py-5 bg-pink-500 text-white rounded-2xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-pink-400 disabled:bg-slate-100 disabled:text-slate-300 transition-all shadow-xl shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingBag className="w-5 h-5" />}
-            {loading ? 'Initializing Node...' : 'Establish Connection'}
+            {loading ? 'Creating...' : 'Add Store'}
           </button>
         </form>
       </motion.div>

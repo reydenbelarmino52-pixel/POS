@@ -233,10 +233,10 @@ export default function Inventory() {
     <div className="space-y-10 pb-12">
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 mb-4">
         <div>
-          <h2 className="text-5xl font-display font-black text-slate-900 tracking-tighter italic uppercase">Inventory Matrix</h2>
+          <h2 className="text-5xl font-display font-bold text-slate-900 tracking-tighter uppercase">Inventory Manager</h2>
           <div className="flex items-center gap-2 mt-4">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">Registry Secure • {products.length} Node Clusters Initialized</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">Registry Secure • {products.length} Products Loaded</span>
           </div>
         </div>
 
@@ -245,7 +245,7 @@ export default function Inventory() {
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
             <input 
               type="text"
-              placeholder="Query localized assets..."
+              placeholder="Search products..."
               className="w-full pl-16 pr-8 py-5 backdrop-blur-md bg-white border border-pink-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-pink-500/5 focus:bg-white transition-all text-sm font-semibold text-slate-900 placeholder:text-slate-300 shadow-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -277,10 +277,10 @@ export default function Inventory() {
                  setPreviewUrl(null);
                  setModalOpen(true);
                }}
-               className="flex items-center gap-3 px-8 py-5 bg-pink-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-2xl shadow-pink-200 hover:bg-pink-500 transition-all"
+               className="flex items-center gap-3 px-8 py-5 bg-pink-600 text-white rounded-3xl font-bold text-[10px] uppercase tracking-widest shadow-2xl shadow-pink-200 hover:bg-pink-500 transition-all"
              >
                <Plus className="w-4 h-4" />
-               Integrate Asset
+               Add Product
              </motion.button>
           </div>
         </div>
@@ -291,11 +291,11 @@ export default function Inventory() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-pink-50/50 bg-[#FAF9F6]">
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Identity / Origin</th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-center">Classification</th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Flow Capacity</th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right">Unit Value</th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right">Ops</th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Product Details</th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Category</th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Stock Level</th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Price</th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-pink-50/50">
@@ -304,14 +304,14 @@ export default function Inventory() {
                    <td colSpan={5} className="px-10 py-32 text-center">
                      <div className="flex flex-col items-center gap-6">
                         <div className="w-10 h-10 border-4 border-pink-500/10 border-t-pink-500 rounded-full animate-spin"></div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em] animate-pulse italic">Synchronizing Cluster...</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.5em] animate-pulse">Synchronizing Data...</p>
                      </div>
                    </td>
                 </tr>
               ) : products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
                 <tr>
-                   <td colSpan={5} className="px-10 py-32 text-center text-slate-300 font-bold uppercase text-xs tracking-widest italic">
-                     No matches localized in current sector
+                   <td colSpan={5} className="px-10 py-32 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">
+                     No products found
                    </td>
                 </tr>
               ) : products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).map((p, i) => (
@@ -338,8 +338,8 @@ export default function Inventory() {
                     </div>
                   </td>
                   <td className="px-10 py-5 text-center">
-                    <span className="px-3 py-1 bg-white border border-pink-100 rounded-lg text-[9px] font-black text-slate-400 uppercase tracking-widest italic group-hover:border-pink-500/30 group-hover:text-pink-500 transition-all">
-                      {p.categoryName || 'Unclassified'}
+                    <span className="px-3 py-1 bg-white border border-pink-100 rounded-lg text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:border-pink-500/30 group-hover:text-pink-500 transition-all">
+                      {p.categoryName || 'Unassigned'}
                     </span>
                   </td>
                   <td className="px-10 py-5">
@@ -355,7 +355,7 @@ export default function Inventory() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-10 py-5 text-right font-black text-slate-900 tracking-tight font-mono text-base italic">
+                  <td className="px-10 py-5 text-right font-bold text-slate-900 tracking-tight font-mono text-base">
                     ${p.price.toFixed(2)}
                   </td>
                   <td className="px-10 py-5 text-right">
@@ -397,7 +397,7 @@ export default function Inventory() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest italic px-1">Product Name</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Product Name</label>
                     <input 
                       required
                       type="text"
@@ -408,7 +408,7 @@ export default function Inventory() {
                     {formErrors.name && <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest px-1">{formErrors.name}</p>}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest italic px-1">Price ($)</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Price ($)</label>
                     <input 
                       required
                       type="number" step="0.01"
@@ -419,7 +419,7 @@ export default function Inventory() {
                     {formErrors.price && <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest px-1">{formErrors.price}</p>}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest italic px-1">Initial Stock</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Initial Stock</label>
                     <input 
                       required
                       type="number"
@@ -430,7 +430,7 @@ export default function Inventory() {
                     {formErrors.stock && <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest px-1">{formErrors.stock}</p>}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest italic px-1">Low Stock Threshold</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Low Stock Threshold</label>
                     <input 
                       type="number"
                       className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 font-medium ${formErrors.lowStockThreshold ? 'border-red-500' : 'border-gray-100'}`}
@@ -440,7 +440,7 @@ export default function Inventory() {
                     {formErrors.lowStockThreshold && <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest px-1">{formErrors.lowStockThreshold}</p>}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest italic px-1">Category</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Category</label>
                     <select 
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 font-medium"
                       value={formData.categoryId}
@@ -451,7 +451,7 @@ export default function Inventory() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest italic px-1">Supplier</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Supplier</label>
                     <select 
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 font-medium"
                       value={formData.supplierId}
@@ -478,7 +478,7 @@ export default function Inventory() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest italic px-1">Image URL (Optional Alternative)</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Image URL (Optional Alternative)</label>
                       <input 
                         type="text"
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 font-medium"
@@ -518,22 +518,22 @@ export default function Inventory() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCatModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden p-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 font-display">New Category Node</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-6 font-display">New Category</h3>
               <form onSubmit={handleSaveCategory} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic px-1">Category Label</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Category Name</label>
                   <input 
                     required
                     type="text"
                     className="w-full px-4 py-3 bg-pink-50 border border-pink-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/20 font-medium"
                     value={catName}
                     onChange={(e) => setCatName(e.target.value)}
-                    placeholder="E.g. Electronics"
+                    placeholder="E.g. Fruit Tea"
                   />
                 </div>
                 <div className="flex gap-4">
-                  <button type="submit" className="flex-1 py-4 bg-pink-600 text-white rounded-2xl font-bold transition-all shadow-xl shadow-pink-200 hover:bg-pink-500 active:scale-95">Initialize Node</button>
-                  <button type="button" onClick={() => setCatModalOpen(false)} className="px-6 py-4 text-slate-400 font-bold hover:text-pink-600 transition-colors uppercase text-[10px] tracking-widest">Discard</button>
+                  <button type="submit" className="flex-1 py-4 bg-pink-600 text-white rounded-2xl font-bold transition-all shadow-xl shadow-pink-200 hover:bg-pink-500 active:scale-95">Add Category</button>
+                  <button type="button" onClick={() => setCatModalOpen(false)} className="px-6 py-4 text-slate-400 font-bold hover:text-pink-600 transition-colors uppercase text-[10px] tracking-widest">Cancel</button>
                 </div>
               </form>
             </motion.div>
@@ -547,10 +547,10 @@ export default function Inventory() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSupModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden p-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 font-display">New Supplier Entity</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-6 font-display">Add Supplier</h3>
               <form onSubmit={handleSaveSupplier} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic px-1">Entity Name</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Supplier Name</label>
                   <input 
                     required
                     type="text"
@@ -561,18 +561,18 @@ export default function Inventory() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic px-1">Communication Channel</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Contact Information</label>
                   <input 
                     type="text"
                     className="w-full px-4 py-3 bg-pink-50 border border-pink-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/20 font-medium"
                     value={supContact}
                     onChange={(e) => setSupContact(e.target.value)}
-                    placeholder="Email or Protocol Addr"
+                    placeholder="Email or phone"
                   />
                 </div>
                 <div className="flex gap-4">
-                  <button type="submit" className="flex-1 py-4 bg-pink-600 text-white rounded-2xl font-bold transition-all shadow-xl shadow-pink-200 hover:bg-pink-500 active:scale-95">Initialize Entity</button>
-                  <button type="button" onClick={() => setSupModalOpen(false)} className="px-6 py-4 text-slate-400 font-bold hover:text-pink-600 transition-colors uppercase text-[10px] tracking-widest">Discard</button>
+                  <button type="submit" className="flex-1 py-4 bg-pink-600 text-white rounded-2xl font-bold transition-all shadow-xl shadow-pink-200 hover:bg-pink-500 active:scale-95">Add Supplier</button>
+                  <button type="button" onClick={() => setSupModalOpen(false)} className="px-6 py-4 text-slate-400 font-bold hover:text-pink-600 transition-colors uppercase text-[10px] tracking-widest">Cancel</button>
                 </div>
               </form>
             </motion.div>
@@ -587,8 +587,8 @@ export default function Inventory() {
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-4xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
               <div className="p-8 border-b border-pink-50 flex items-center justify-between shrink-0">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 font-display italic uppercase tracking-tight">Inventory Audit Protocol</h3>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Temporal Registry of Asset Dynamics</p>
+                  <h3 className="text-xl font-bold text-gray-900 font-display uppercase tracking-tight">Inventory Logs</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">History of stock changes</p>
                 </div>
                 <button onClick={() => setAuditLogsOpen(false)} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all">
                    <X className="w-6 h-6" />
@@ -599,11 +599,11 @@ export default function Inventory() {
                 {logsLoading ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-4">
                     <div className="w-10 h-10 border-4 border-pink-500/10 border-t-pink-500 rounded-full animate-spin"></div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">Syncing logs...</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Syncing logs...</p>
                   </div>
                 ) : auditLogs.length === 0 ? (
-                  <div className="text-center py-20 text-slate-300 font-black uppercase text-xs tracking-widest italic">
-                    No registry entries localized
+                  <div className="text-center py-20 text-slate-300 font-bold uppercase text-xs tracking-widest">
+                    No registry entries found
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -617,24 +617,24 @@ export default function Inventory() {
                             <ArrowRightLeft className="w-6 h-6" />
                           </div>
                           <div>
-                            <p className="text-base font-black text-slate-900 italic tracking-tight uppercase">{log.productName}</p>
+                            <p className="text-base font-bold text-slate-900 tracking-tight uppercase">{log.productName}</p>
                             <div className="flex items-center gap-2 mt-1">
-                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{log.username}</p>
+                               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{log.username}</p>
                                <div className="w-1 h-1 bg-slate-200 rounded-full"></div>
-                               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{new Date(log.timestamp).toLocaleString()}</p>
+                               <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">{new Date(log.timestamp).toLocaleString()}</p>
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-10">
                            <div className="text-right">
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Flux Delta</p>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity Change</p>
                               <div className="flex items-center gap-3">
                                 <span className="text-xs font-mono font-bold text-slate-300">{log.oldStock}</span>
                                 <ArrowRightLeft className="w-3 h-3 text-pink-200" />
-                                <span className="text-base font-mono font-black text-pink-600 italic">{log.newStock}</span>
+                                <span className="text-base font-mono font-bold text-pink-600">{log.newStock}</span>
                               </div>
                            </div>
-                           <div className="px-4 py-2 bg-white border border-pink-100 rounded-xl text-[9px] font-black text-slate-400 uppercase tracking-widest italic group-hover:text-pink-500 group-hover:border-pink-200 transition-all">
+                           <div className="px-4 py-2 bg-white border border-pink-100 rounded-xl text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-pink-500 group-hover:border-pink-200 transition-all">
                               {log.changeType}
                            </div>
                         </div>

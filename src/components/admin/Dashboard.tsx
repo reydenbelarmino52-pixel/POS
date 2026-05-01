@@ -14,7 +14,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     const isDate = typeof label === 'string' && (label.includes('-') || label.includes('/'));
     return (
       <div className="backdrop-blur-xl bg-white/95 border border-pink-100 p-5 rounded-2xl shadow-2xl min-w-[200px] shadow-pink-100">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-black/5 pb-2">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-black/5 pb-2">
           {isDate ? new Date(label).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : label}
         </p>
         <div className="space-y-3">
@@ -22,11 +22,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             <div key={index} className="flex items-center justify-between gap-6">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color || entry.fill }}></div>
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider italic">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   {entry.name}
                 </span>
               </div>
-              <span className="text-sm font-black text-slate-900 font-mono italic">
+              <span className="text-sm font-bold text-slate-900 font-mono">
                 {typeof entry.value === 'number' ? 
                   (entry.name.toLowerCase().includes('revenue') || entry.name.toLowerCase().includes('value') ? 
                     `$${entry.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 
@@ -68,7 +68,7 @@ export default function Dashboard() {
           <div className="absolute inset-0 border-4 border-pink-500/20 rounded-full"></div>
           <div className="absolute inset-0 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] animate-pulse italic">Scanning Cathtea Portals...</p>
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.4em] animate-pulse">Initializing Dashboard...</p>
       </div>
     );
   }
@@ -83,51 +83,51 @@ export default function Dashboard() {
       {/* Header Info */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 mb-4">
         <div>
-          <h2 className="text-5xl font-display font-black text-slate-900 tracking-tighter italic uppercase">Intelligence Matrix</h2>
+          <h2 className="text-5xl font-display font-bold text-slate-900 tracking-tighter uppercase">Business Overview</h2>
           <div className="flex items-center gap-2 mt-4">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">System Status: Optimized • Monitoring {new Date().toLocaleTimeString()}</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">System Ready • Latest Update {new Date().toLocaleTimeString()}</span>
           </div>
         </div>
-        <div className="px-6 py-4 bg-white border border-pink-100 rounded-2xl flex items-center gap-3 shadow-sm group hover:border-pink-500 transition-all cursor-crosshair">
+        <div className="px-6 py-4 bg-white border border-pink-100 rounded-2xl flex items-center gap-3 shadow-sm group hover:border-pink-500 transition-all">
           <Activity className="w-5 h-5 text-pink-500 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] italic">Real-time Telemetry Active</span>
+          <span className="text-[10px] font-bold text-slate-900 uppercase tracking-[0.2em]">Real-time Tracking Active</span>
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="Day Revenue" 
+          title="Daily Revenue" 
           value={`$${todayRevenue.toLocaleString()}`} 
           trend={todayRevenue > 0 ? "+Active" : "Neutral"} 
           positive={todayRevenue > 0} 
           icon={DollarSign}
-          subtitle="Real-time gross intake"
+          subtitle="Real-time intake"
         />
         <StatCard 
-          title="Terminal Sales" 
+          title="Orders Today" 
           value={todaySales.toString()} 
           trend={todaySales > 0 ? "Active" : "Idle"} 
           positive={todaySales > 0} 
           icon={ShoppingCart}
-          subtitle="Processed transaction tokens"
+          subtitle="Total transactions"
         />
         <StatCard 
-          title="Asset Density" 
+          title="Stock Alerts" 
           value={totalProducts.toString()} 
-          trend={lowStock > 0 ? `${lowStock} Low` : "Standard"} 
+          trend={lowStock > 0 ? `${lowStock} Low` : "Safe"} 
           positive={lowStock === 0} 
           icon={Package}
-          subtitle="Total unique catalog nodes"
+          subtitle="Total catalog items"
         />
         <StatCard 
-          title="Staff Synergy" 
+          title="Team Members" 
           value={summary?.general?.total_staff?.toString() || "0"} 
-          trend="Stable" 
+          trend="Active" 
           positive 
           icon={Users}
-          subtitle="Authorized network entities"
+          subtitle="Authorized staff"
         />
       </div>
 
@@ -140,13 +140,13 @@ export default function Dashboard() {
         >
           <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/5 blur-[100px] pointer-events-none"></div>
           <div className="flex items-center justify-between mb-10 relative z-10">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] italic font-display flex items-center gap-3">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em] font-display flex items-center gap-3">
               <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></div>
-              Revenue Velocity
+              Revenue Trend
             </h3>
             <div className="flex gap-2">
-               <button className="px-3 py-1.5 bg-pink-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg shadow-pink-200">Last 30 Days</button>
-               <button className="px-3 py-1.5 bg-pink-50 text-pink-400 text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-pink-100">Yearly</button>
+               <button className="px-3 py-1.5 bg-pink-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-lg shadow-lg shadow-pink-200">Last 30 Days</button>
+               <button className="px-3 py-1.5 bg-pink-50 text-pink-400 text-[9px] font-bold uppercase tracking-widest rounded-lg hover:bg-pink-100">Yearly</button>
             </div>
           </div>
           <div className="h-[350px] w-full relative z-10">
@@ -195,7 +195,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center border-2 border-dashed border-white/5 rounded-3xl">
-                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest italic">Insufficient data points for generation</p>
+                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Waiting for sales data</p>
               </div>
             )}
           </div>
@@ -207,7 +207,7 @@ export default function Dashboard() {
           animate={{ opacity: 1, scale: 1 }}
           className="backdrop-blur-md bg-white border border-pink-100 p-8 rounded-[3rem] shadow-xl flex flex-col items-center justify-center text-center shadow-pink-50"
         >
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] italic font-display mb-8 self-start">Category Core</h3>
+          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em] font-display mb-8 self-start">Sales by Category</h3>
           <div className="flex-1 min-h-[250px] w-full">
             {summary?.categories?.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -230,14 +230,14 @@ export default function Dashboard() {
                   <Legend 
                     iconType="circle" 
                     verticalAlign="bottom" 
-                    wrapperStyle={{ paddingTop: '30px', fontSize: '9px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.1em' }} 
+                    wrapperStyle={{ paddingTop: '30px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }} 
                   />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center gap-4 border-2 border-dashed border-white/5 rounded-3xl">
-                <div className="w-12 h-12 rounded-full border-2 border-white/5 flex items-center justify-center text-slate-700 font-black">?</div>
-                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest italic">Waiting for classification</p>
+                <div className="w-12 h-12 rounded-full border-2 border-white/5 flex items-center justify-center text-slate-700 font-bold">?</div>
+                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Waiting for data</p>
               </div>
             )}
           </div>
@@ -252,34 +252,34 @@ export default function Dashboard() {
             className="backdrop-blur-md bg-white border border-pink-100 p-10 rounded-[3rem] shadow-xl shadow-pink-50"
           >
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] italic font-display">Cathtea Clusters</h3>
-              <p className="text-[9px] font-black text-pink-500 uppercase tracking-widest px-3 py-1 bg-pink-50 rounded-full border border-pink-100 italic">Top 5 Units</p>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em] font-display">Best Selling Products</h3>
+              <p className="text-[9px] font-bold text-pink-500 uppercase tracking-widest px-3 py-1 bg-pink-50 rounded-full border border-pink-100">Top 5 Items</p>
             </div>
             <div className="space-y-4">
               {summary?.bestSellers?.length > 0 ? (
                 summary.bestSellers.map((item: any, i: number) => (
                   <div key={i} className="flex items-center justify-between p-5 bg-white border border-pink-50 rounded-[1.5rem] group hover:bg-pink-50 hover:border-pink-200 transition-all duration-300">
                     <div className="flex items-center gap-5">
-                      <div className="w-12 h-12 bg-pink-500/10 text-pink-500 rounded-2xl flex items-center justify-center font-black text-sm border border-pink-500/20 shadow-lg shadow-pink-500/10 transition-transform group-hover:scale-110">
+                      <div className="w-12 h-12 bg-pink-500/10 text-pink-500 rounded-2xl flex items-center justify-center font-bold text-sm border border-pink-500/20 shadow-lg shadow-pink-500/10 transition-transform group-hover:scale-110">
                         {i+1}
                       </div>
                       <div>
-                        <p className="text-base font-bold text-slate-900 italic tracking-tight">{item.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{item.totalSold} units integrated</p>
+                        <p className="text-base font-bold text-slate-900 tracking-tight">{item.name}</p>
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-[0.2em] mt-1">{item.totalSold} units sold</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-black text-slate-900 tracking-widest font-mono">${item.totalRevenue.toLocaleString()}</p>
-                      <div className="flex items-center gap-1 justify-end text-[9px] text-pink-500 font-black uppercase tracking-widest mt-1">
+                      <p className="text-lg font-bold text-slate-900 tracking-widest font-mono">${item.totalRevenue.toLocaleString()}</p>
+                      <div className="flex items-center gap-1 justify-end text-[9px] text-pink-500 font-bold uppercase tracking-widest mt-1">
                         <TrendingUp className="w-3 h-3" />
-                        Peak Flow
+                        Peak Performance
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-3xl">
-                   <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest italic">Awaiting transaction records...</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No transaction records found</p>
                 </div>
               )}
             </div>
@@ -291,7 +291,7 @@ export default function Dashboard() {
             animate={{ opacity: 1, x: 0 }}
             className="backdrop-blur-md bg-white border border-pink-100 p-10 rounded-[3rem] shadow-xl shadow-pink-50 flex flex-col"
           >
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] italic font-display mb-10 text-center">Output Capacity</h3>
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em] font-display mb-10 text-center">Sales Performance</h3>
             <div className="flex-1 h-[300px] w-full">
               {summary?.bestSellers?.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -320,7 +320,7 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center border-2 border-dashed border-black/5 rounded-3xl">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Generating baseline metrics...</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Generating metrics...</p>
                 </div>
               )}
             </div>
@@ -330,7 +330,7 @@ export default function Dashboard() {
                     <TrendingUp className="w-4 h-4 text-pink-400" />
                   </div>
                   <p className="text-[10px] text-slate-500 font-bold leading-relaxed uppercase tracking-wider">
-                    System scalability is currently operating within <span className="text-pink-600 font-black">optimal parameters</span> for current node density.
+                    Store performance is currently operating within <span className="text-pink-600 font-bold">optimal ranges</span> for your shop.
                   </p>
                 </div>
             </div>
@@ -351,14 +351,14 @@ function StatCard({ title, value, trend, positive, icon: Icon, subtitle }: any) 
         <div className="p-4 bg-[#FAF9F6] rounded-2xl border border-slate-100 group-hover:border-pink-200 transition-colors shadow-inner">
           <Icon className="w-6 h-6 text-pink-500" />
         </div>
-        <div className={`flex items-center gap-1.5 text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm ${positive ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'}`}>
+        <div className={`flex items-center gap-1.5 text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm ${positive ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'}`}>
           {trend}
         </div>
       </div>
       <div className="relative z-10">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 italic">{title}</p>
-        <p className="text-4xl font-display font-black text-slate-900 tracking-tighter mb-2 italic">{value}</p>
-        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest opacity-60">{subtitle}</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{title}</p>
+        <p className="text-4xl font-display font-bold text-slate-900 tracking-tighter mb-2">{value}</p>
+        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest opacity-60">{subtitle}</p>
       </div>
     </motion.div>
   );

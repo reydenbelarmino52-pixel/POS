@@ -91,10 +91,10 @@ export default function OrderHistory() {
       {/* Header Actions */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 mb-4">
         <div>
-          <h2 className="text-5xl font-display font-black text-slate-900 tracking-tighter italic uppercase">Transaction Ledger</h2>
+          <h2 className="text-5xl font-display font-bold text-slate-900 tracking-tighter uppercase">Order History</h2>
           <div className="flex items-center gap-2 mt-4">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">Archive Manifest • {orders.length} Historical Records Localized</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">Total Records: {orders.length}</span>
           </div>
         </div>
 
@@ -118,10 +118,10 @@ export default function OrderHistory() {
              <motion.button 
                whileHover={{ scale: 1.02 }}
                whileTap={{ scale: 0.98 }}
-               className="flex items-center gap-3 px-8 py-5 bg-white text-slate-900 border border-pink-100 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:border-pink-500 transition-all shadow-sm"
+               className="flex items-center gap-3 px-8 py-5 bg-white text-slate-900 border border-pink-100 rounded-3xl font-bold text-[10px] uppercase tracking-widest hover:border-pink-500 transition-all shadow-sm"
              >
                <Download className="w-4 h-4 text-pink-500" />
-               Log Dump
+               Export Records
              </motion.button>
           </div>
         </div>
@@ -134,7 +134,7 @@ export default function OrderHistory() {
             <thead>
               <tr className="border-b border-pink-50/50 bg-[#FAF9F6]">
                 <th 
-                  className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic cursor-pointer hover:text-slate-900 transition-colors group"
+                  className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-900 transition-colors group"
                   onClick={() => handleSort('id')}
                 >
                   <div className="flex items-center gap-2">
@@ -142,47 +142,47 @@ export default function OrderHistory() {
                   </div>
                 </th>
                 <th 
-                  className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic cursor-pointer hover:text-slate-900 transition-colors group"
+                  className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-900 transition-colors group"
                   onClick={() => handleSort('cashierName')}
                 >
                   <div className="flex items-center gap-2">
-                    Terminal Operator <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    Cashier <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </th>
                 <th 
-                  className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic cursor-pointer hover:text-slate-900 transition-colors group"
+                  className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-900 transition-colors group"
                   onClick={() => handleSort('timestamp')}
                 >
                   <div className="flex items-center gap-2">
-                    Verification Time <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    Date & Time <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right">Protocol</th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Payment</th>
                 <th 
-                  className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right cursor-pointer hover:text-slate-900 transition-colors group"
+                  className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right cursor-pointer hover:text-slate-900 transition-colors group"
                   onClick={() => handleSort('total')}
                 >
                   <div className="flex items-center justify-end gap-2">
-                    Gross Settlement <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    Total Amount <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right">Ops</th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-pink-50/50 text-[13px]">
-              {loading ? (
+               {loading ? (
                 <tr>
                    <td colSpan={6} className="px-10 py-32 text-center">
                      <div className="flex flex-col items-center gap-6">
                         <div className="w-10 h-10 border-4 border-pink-500/10 border-t-pink-500 rounded-full animate-spin"></div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em] animate-pulse italic">Scanning Historical Clusters...</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.5em] animate-pulse">Loading Records...</p>
                      </div>
                    </td>
                 </tr>
               ) : filteredAndSortedOrders.length === 0 ? (
                 <tr>
-                   <td colSpan={6} className="px-10 py-32 text-center text-slate-300 font-black uppercase text-xs tracking-widest italic">
-                     Zero transaction matches localized
+                   <td colSpan={6} className="px-10 py-32 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">
+                     No matching orders
                    </td>
                 </tr>
               ) : (
@@ -204,7 +204,7 @@ export default function OrderHistory() {
                     </td>
                     <td className="px-10 py-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[#FAF9F6] border border-pink-100 flex items-center justify-center text-[9px] font-black text-pink-500 uppercase italic">
+                        <div className="w-8 h-8 rounded-full bg-[#FAF9F6] border border-pink-100 flex items-center justify-center text-[9px] font-bold text-pink-500 uppercase">
                           {order.cashierName[0]}
                         </div>
                         <span className="font-bold text-slate-900 tracking-tight group-hover:text-pink-600 transition-colors uppercase">{order.cashierName}</span>
@@ -221,11 +221,11 @@ export default function OrderHistory() {
                       </div>
                     </td>
                     <td className="px-10 py-5 text-right">
-                      <span className="px-3 py-1 bg-white border border-pink-100 rounded-lg text-[9px] font-black text-slate-400 uppercase tracking-widest italic group-hover:border-pink-500/30 group-hover:text-pink-500 transition-all">
+                      <span className="px-3 py-1 bg-white border border-pink-100 rounded-lg text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:border-pink-500/30 group-hover:text-pink-500 transition-all">
                         {order.paymentMethod}
                       </span>
                     </td>
-                    <td className="px-10 py-5 text-right font-black text-slate-900 tracking-tight font-mono text-base italic group-hover:text-pink-600 transition-colors">
+                    <td className="px-10 py-5 text-right font-bold text-slate-900 tracking-tight font-mono text-base group-hover:text-pink-600 transition-colors">
                       ${order.total.toFixed(2)}
                     </td>
                     <td className="px-10 py-5 text-right">
@@ -268,8 +268,8 @@ export default function OrderHistory() {
                     <div className="absolute inset-0 bg-pink-400/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <Receipt className="w-8 h-8 relative z-10" />
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 italic uppercase tracking-tighter">Transmission Successful</h3>
-                  <p className="text-[10px] text-pink-500 font-black uppercase tracking-[0.2em] mt-2">ID_TAG: {selectedOrder.id}</p>
+                  <h3 className="text-2xl font-bold text-slate-900 uppercase tracking-tighter">Sale Successful</h3>
+                  <p className="text-[10px] text-pink-500 font-bold uppercase tracking-[0.2em] mt-2">Order ID: {selectedOrder.id}</p>
                   <p className="text-[9px] text-slate-400 font-bold mt-2 uppercase tracking-widest">{new Date(selectedOrder.timestamp).toLocaleString()}</p>
                 </div>
 
@@ -277,43 +277,43 @@ export default function OrderHistory() {
                   {selectedOrder.items?.map((item: any) => (
                     <div key={item.id} className="flex justify-between items-center bg-pink-50 p-3 rounded-xl">
                       <div className="flex flex-col">
-                        <span className="text-xs font-black text-slate-900 italic uppercase">{item.name}</span>
+                        <span className="text-xs font-bold text-slate-900 uppercase">{item.name}</span>
                         <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{item.quantity} units x ${item.priceAtSale.toFixed(2)}</span>
                       </div>
-                      <span className="font-black text-slate-900 font-mono tracking-tighter">${(item.priceAtSale * item.quantity).toFixed(2)}</span>
+                      <span className="font-bold text-slate-900 font-mono tracking-tighter">${(item.priceAtSale * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
 
                 <div className="border-t-4 border-double border-pink-100 pt-8 space-y-3 mb-10">
-                  <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-                    <span>Base Value</span>
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <span>Subtotal</span>
                     <span className="font-mono text-slate-900">${(selectedOrder.total - selectedOrder.tax + (selectedOrder.discount || 0)).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-                    <span>Protocol Tax</span>
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <span>Tax (12%)</span>
                     <span className="font-mono text-slate-900">${selectedOrder.tax.toFixed(2)}</span>
                   </div>
                   {selectedOrder.discount > 0 && (
-                    <div className="flex justify-between text-[10px] font-black text-red-500 uppercase tracking-widest italic">
+                    <div className="flex justify-between text-[10px] font-bold text-red-500 uppercase tracking-widest">
                         <span>Discount</span>
                         <span className="font-mono">-${selectedOrder.discount.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between pt-5 border-t border-pink-100">
-                    <span className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] italic">Settlement Total</span>
-                    <span className="text-2xl font-black text-pink-600 font-mono italic tracking-tighter">${selectedOrder.total.toFixed(2)}</span>
+                    <span className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Total Amount</span>
+                    <span className="text-2xl font-bold text-pink-600 font-mono tracking-tighter">${selectedOrder.total.toFixed(2)}</span>
                   </div>
                 </div>
 
                 <div className="bg-pink-50 border border-pink-100 p-5 rounded-2xl mb-10">
-                  <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em] italic text-center mb-4">Method: {selectedOrder.paymentMethod}</p>
+                  <p className="text-[10px] font-bold text-pink-500 uppercase tracking-[0.4em] text-center mb-4">Method: {selectedOrder.paymentMethod}</p>
                   <div className="space-y-2 border-t border-pink-200 pt-4">
-                     <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                     <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Paid</span>
                         <span className="font-mono text-slate-900">${(selectedOrder.amountReceived || selectedOrder.total).toFixed(2)}</span>
                      </div>
-                     <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                     <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Change</span>
                         <span className="font-mono text-slate-900">${(selectedOrder.changeAmount || 0).toFixed(2)}</span>
                      </div>
@@ -323,14 +323,14 @@ export default function OrderHistory() {
                 <div className="flex gap-4 print:hidden">
                   <button 
                     onClick={handlePrint}
-                    className="flex-1 py-5 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-slate-800 transition-all shadow-xl active:scale-95"
+                    className="flex-1 py-5 bg-slate-900 text-white rounded-[1.5rem] font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-slate-800 transition-all shadow-xl active:scale-95"
                   >
                     <Receipt className="w-5 h-5 opacity-50" />
                     Print Receipt
                   </button>
                   <button 
                     onClick={() => setSelectedOrder(null)}
-                    className="px-8 py-5 text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-pink-600 transition-colors"
+                    className="px-8 py-5 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-pink-600 transition-colors"
                   >
                     Close
                   </button>

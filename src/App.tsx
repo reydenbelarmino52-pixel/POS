@@ -15,7 +15,7 @@ import AIAssistant from './components/ai/AIAssistant';
 function PrivateRoute({ children, role }: { children: React.ReactNode, role?: string }) {
   const { user, currentStore, isLoading } = useAuth();
   
-  if (isLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-500 uppercase tracking-[0.5em] italic">Initializing Cathtea Terminal...</div>;
+  if (isLoading) return <div className="flex items-center justify-center min-h-screen font-bold text-slate-500 uppercase tracking-[0.5em]">Initializing Cathtea Terminal...</div>;
   if (!user) return <Navigate to="/login" />;
   if (!currentStore) return <Navigate to="/select-store" />;
   if (role && user.role !== role && user.role !== 'admin') return <Navigate to="/pos" />;

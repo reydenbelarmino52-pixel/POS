@@ -79,8 +79,8 @@ export default function Shell({ children }: ShellProps) {
                 <Bell className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.2em] mb-1">Stock Protocol Alert</p>
-                <p className="text-sm font-bold text-slate-900 italic tracking-tight">{activeToast.message}</p>
+                <p className="text-[10px] font-bold text-pink-500 uppercase tracking-[0.2em] mb-1">System Alert</p>
+                <p className="text-sm font-semibold text-slate-900 tracking-tight">{activeToast.message}</p>
               </div>
               <button 
                 onClick={() => setActiveToast(null)}
@@ -96,9 +96,9 @@ export default function Shell({ children }: ShellProps) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-72 backdrop-blur-2xl bg-white border-r border-[#E5E7EB] sticky top-0 h-screen z-20 print:hidden shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-10">
-          <h1 className="text-3xl font-display font-black tracking-tighter text-slate-900 flex items-center gap-3 italic uppercase">
+          <h1 className="text-3xl font-display font-bold tracking-tighter text-slate-900 flex items-center gap-3 uppercase">
             <div className="w-10 h-10 bg-pink-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-pink-200">
-              <span className="text-white font-black text-sm">CT</span>
+              <span className="text-white font-bold text-sm">CT</span>
             </div>
             {currentStore?.name || 'Cathtea POS'}
           </h1>
@@ -115,15 +115,15 @@ export default function Shell({ children }: ShellProps) {
                     <Store className="w-4 h-4 text-slate-400 group-hover:text-pink-500" />
                   </div>
                   <div className="text-left overflow-hidden">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Node</p>
-                    <p className="text-xs font-black text-slate-900 uppercase italic truncate">{currentStore?.name}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Store</p>
+                    <p className="text-xs font-bold text-slate-900 uppercase truncate">{currentStore?.name}</p>
                   </div>
                 </div>
                 <RefreshCw className="w-3 h-3 text-slate-300 group-hover:text-pink-500" />
              </button>
           </div>
 
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-4 mb-4">Core Channels</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] px-4 mb-4">Navigation</p>
           {filteredNav.map((item) => (
             <NavLink
               key={item.path}
@@ -148,20 +148,20 @@ export default function Shell({ children }: ShellProps) {
         <div className="p-8 mt-auto">
           <div className="p-6 bg-[#FAF9F6] border border-slate-100 rounded-[2rem] shadow-inner mb-6">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-12 h-12 rounded-[1.25rem] bg-pink-600 flex items-center justify-center text-sm font-black text-white shadow-xl shadow-pink-200 uppercase italic">
+              <div className="w-12 h-12 rounded-[1.25rem] bg-pink-600 flex items-center justify-center text-sm font-bold text-white shadow-xl shadow-pink-200 uppercase">
                 {user?.username[0]}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-slate-900 truncate uppercase tracking-tighter italic">{user?.username}</p>
-                <p className="text-[10px] text-pink-500 font-bold uppercase tracking-[0.2em]">{user?.role}</p>
+                <p className="text-sm font-bold text-slate-900 truncate uppercase tracking-tighter">{user?.username}</p>
+                <p className="text-[10px] text-pink-500 font-semibold uppercase tracking-[0.2em]">{user?.role}</p>
               </div>
             </div>
             <button 
               onClick={logout}
-              className="w-full flex items-center justify-center gap-2 py-3 text-[10px] font-black text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all duration-300 uppercase tracking-widest border border-transparent hover:border-rose-100"
+              className="w-full flex items-center justify-center gap-2 py-3 text-[10px] font-bold text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all duration-300 uppercase tracking-widest border border-transparent hover:border-rose-100"
             >
               <LogOut className="w-4 h-4" />
-              Terminate Session
+              Sign Out
             </button>
           </div>
         </div>
@@ -179,12 +179,12 @@ export default function Shell({ children }: ShellProps) {
               <Menu className="w-5 h-5 text-slate-600" />
             </button>
             <div>
-              <h2 className="text-3xl font-display font-black text-slate-900 tracking-tighter italic uppercase">
+              <h2 className="text-3xl font-display font-bold text-slate-900 tracking-tighter uppercase">
                 {navItems.find(n => n.path === window.location.pathname)?.name || 'Terminal'}
               </h2>
               <div className="flex items-center gap-2 mt-1">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">System Active • Local Node Verified</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">System Active • Connection Secured</span>
               </div>
             </div>
           </div>
@@ -193,7 +193,7 @@ export default function Shell({ children }: ShellProps) {
              {/* AI Tools shortcut */}
               <button 
                onClick={() => navigate('/ai-assistant')}
-               className="hidden sm:flex items-center gap-3 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg group"
+               className="hidden sm:flex items-center gap-3 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg group"
              >
                <div className="w-1.5 h-1.5 bg-pink-500 rounded-full group-hover:scale-150 transition-transform shadow-[0_0_8px_rgba(236,72,153,1)]"></div>
                Shortcut AI Vault
@@ -207,10 +207,10 @@ export default function Shell({ children }: ShellProps) {
                 )}
               </div>
               <div className="absolute right-0 mt-3 w-72 backdrop-blur-2xl bg-white/95 border border-black/5 rounded-2xl shadow-2xl hidden group-hover:block z-50 p-3 shadow-pink-100">
-                <p className="text-[10px] font-black text-slate-400 px-3 py-2 uppercase tracking-widest">Active Alerts</p>
+                <p className="text-[10px] font-bold text-slate-400 px-3 py-2 uppercase tracking-widest">Active Alerts</p>
                 <div className="space-y-1 max-h-64 overflow-auto">
                   {notifications.length === 0 ? (
-                     <p className="text-xs text-slate-300 p-4 text-center italic">No system warnings</p>
+                     <p className="text-xs text-slate-300 p-4 text-center">No system warnings</p>
                   ) : (
                     notifications.map(n => (
                       <div key={n.id} className="p-3 bg-pink-50 text-pink-900 border border-pink-100 hover:bg-pink-100 rounded-xl transition-all">
@@ -260,10 +260,10 @@ export default function Shell({ children }: ShellProps) {
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-black text-sm">CT</span>
+                  <div className="w-10 h-10 bg-pink-500 rounded-xl flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">CT</span>
                   </div>
-                  <h1 className="text-xl font-black tracking-tight text-white uppercase italic">Cathtea</h1>
+                  <h1 className="text-xl font-bold tracking-tight text-white uppercase">Cathtea</h1>
                 </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-400">
                   <X className="w-6 h-6" />

@@ -74,19 +74,19 @@ export default function AIAssistant() {
         </div>
         
         <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-pink-500/10 text-pink-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 backdrop-blur-sm border border-pink-500/20">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-pink-500/10 text-pink-600 rounded-full text-[10px] font-bold uppercase tracking-widest mb-6 backdrop-blur-sm border border-pink-500/20">
             <Sparkles className="w-3.5 h-3.5" />
-            Intelligence Protocol
+            Business Intelligence
           </div>
-          <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tighter uppercase italic italic font-display">Business Insights</h2>
-          <p className="text-slate-500 max-w-xl text-lg mb-10 font-medium italic">Execute advanced analytical models to detect operational anomalies and optimize asset deployment.</p>
+          <h2 className="text-4xl font-bold text-slate-900 mb-4 tracking-tighter uppercase font-display">Business Insights</h2>
+          <p className="text-slate-500 max-w-xl text-lg mb-10 font-medium">Use AI-powered analysis to identify operational trends and optimize your business performance.</p>
           
           <button 
             onClick={generateInsight}
             disabled={loading || !data}
-            className="px-8 py-5 bg-pink-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-pink-500 transition-all shadow-xl active:translate-y-0.5 outline-none shadow-pink-200"
+            className="px-8 py-5 bg-pink-600 text-white rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-pink-500 transition-all shadow-xl active:translate-y-0.5 outline-none shadow-pink-200"
           >
-            {loading ? 'Processing Model...' : 'Initialize Logic Engine'}
+            {loading ? 'Analyzing Data...' : 'Generate AI Report'}
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -97,7 +97,7 @@ export default function AIAssistant() {
         <div className="lg:col-span-2">
            <div className="backdrop-blur-md bg-white border border-pink-100 p-10 md:p-14 rounded-[3.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.05)] min-h-[500px]">
               {insight ? (
-                <div className="prose prose-sm max-w-none prose-headings:text-slate-900 prose-headings:font-black prose-p:text-slate-600 prose-li:text-slate-600 prose-strong:text-pink-600 prose-code:text-pink-500 h-full">
+                <div className="prose prose-sm max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-p:text-slate-600 prose-li:text-slate-600 prose-strong:text-pink-600 prose-code:text-pink-500 h-full">
                   <Markdown>{insight}</Markdown>
                 </div>
               ) : (
@@ -105,8 +105,8 @@ export default function AIAssistant() {
                   <div className="w-16 h-16 bg-pink-50 rounded-3xl flex items-center justify-center mb-6 border border-pink-100 shadow-inner">
                     <Lightbulb className="w-8 h-8 text-pink-500 animate-pulse" />
                   </div>
-                  <p className="text-xl font-black text-slate-900 uppercase italic tracking-tight mb-2">No Active Intelligence</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-xs">Initialize the logic engine to generate synthetic business reports.</p>
+                  <p className="text-xl font-bold text-slate-900 uppercase tracking-tight mb-2">No Active Insights</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-xs">Run the analysis to generate AI-powered business reports.</p>
                 </div>
               )}
            </div>
@@ -118,16 +118,16 @@ export default function AIAssistant() {
               <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mb-6 group-hover:bg-amber-500 group-hover:text-white transition-all border border-amber-100">
                 <AlertTriangle className="w-6 h-6" />
               </div>
-              <h4 className="font-black text-slate-900 italic tracking-tight uppercase mb-3 text-lg">Inventory Risk</h4>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">Predictive detection of asset depletion based on real-world sales velocity data.</p>
+              <h4 className="font-bold text-slate-900 tracking-tight uppercase mb-3 text-lg">Inventory Tracking</h4>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">Identifies items that are low in stock and provides reordering suggestions.</p>
            </div>
 
            <div className="backdrop-blur-md bg-white p-8 rounded-[2.5rem] border border-pink-100 shadow-sm group hover:border-pink-500 transition-all shadow-pink-50/50">
               <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mb-6 group-hover:bg-emerald-500 group-hover:text-white transition-all border border-emerald-100">
                 <TrendingUp className="w-6 h-6" />
               </div>
-              <h4 className="font-black text-slate-900 italic tracking-tight uppercase mb-3 text-lg">Velocity Audit</h4>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">Longitudinal performance analysis across all system nodes and categories.</p>
+              <h4 className="font-bold text-slate-900 tracking-tight uppercase mb-3 text-lg">Sales Performance</h4>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">Detailed analysis of revenue trends and product performance over time.</p>
            </div>
         </div>
       </div>
