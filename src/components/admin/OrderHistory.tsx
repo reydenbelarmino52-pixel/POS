@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface Order {
   id: string;
-  cashier_name: string;
+  cashierName: string;
   total: number;
   paymentMethod: string;
   timestamp: string;
@@ -74,7 +74,7 @@ export default function OrderHistory() {
   const filteredAndSortedOrders = useMemo(() => {
     return orders
       .filter(order => 
-        order.cashier_name.toLowerCase().includes(search.toLowerCase()) ||
+        order.cashierName.toLowerCase().includes(search.toLowerCase()) ||
         order.id.toString().includes(search)
       )
       .sort((a, b) => {
@@ -143,7 +143,7 @@ export default function OrderHistory() {
                 </th>
                 <th 
                   className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic cursor-pointer hover:text-slate-900 transition-colors group"
-                  onClick={() => handleSort('cashier_name')}
+                  onClick={() => handleSort('cashierName')}
                 >
                   <div className="flex items-center gap-2">
                     Terminal Operator <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -205,9 +205,9 @@ export default function OrderHistory() {
                     <td className="px-10 py-5">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-[#FAF9F6] border border-pink-100 flex items-center justify-center text-[9px] font-black text-pink-500 uppercase italic">
-                          {order.cashier_name[0]}
+                          {order.cashierName[0]}
                         </div>
-                        <span className="font-bold text-slate-900 tracking-tight group-hover:text-pink-600 transition-colors uppercase">{order.cashier_name}</span>
+                        <span className="font-bold text-slate-900 tracking-tight group-hover:text-pink-600 transition-colors uppercase">{order.cashierName}</span>
                       </div>
                     </td>
                     <td className="px-10 py-5">

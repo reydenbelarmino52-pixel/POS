@@ -333,13 +333,13 @@ export default function Inventory() {
                       </div>
                       <div>
                         <p className="text-[13px] font-bold text-slate-900 tracking-tight group-hover:text-pink-600 transition-colors uppercase">{p.name}</p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{p.supplier_name || 'Generic'}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{p.supplierName || 'Generic'}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-10 py-5 text-center">
                     <span className="px-3 py-1 bg-white border border-pink-100 rounded-lg text-[9px] font-black text-slate-400 uppercase tracking-widest italic group-hover:border-pink-500/30 group-hover:text-pink-500 transition-all">
-                      {p.category_name || 'Unclassified'}
+                      {p.categoryName || 'Unclassified'}
                     </span>
                   </td>
                   <td className="px-10 py-5">
@@ -617,7 +617,7 @@ export default function Inventory() {
                             <ArrowRightLeft className="w-6 h-6" />
                           </div>
                           <div>
-                            <p className="text-base font-black text-slate-900 italic tracking-tight uppercase">{log.product_name}</p>
+                            <p className="text-base font-black text-slate-900 italic tracking-tight uppercase">{log.productName}</p>
                             <div className="flex items-center gap-2 mt-1">
                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{log.username}</p>
                                <div className="w-1 h-1 bg-slate-200 rounded-full"></div>

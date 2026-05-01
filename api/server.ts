@@ -148,8 +148,8 @@ router.post("/auth/login",
 router.get("/products", authenticateToken, (req, res) => {
   const formattedProducts = products.map(p => ({
     ...p,
-    category_name: categories.find(c => c.id === p.categoryId)?.name,
-    supplier_name: suppliers.find(s => s.id === p.supplierId)?.name
+    categoryName: categories.find(c => c.id === p.categoryId)?.name,
+    supplierName: suppliers.find(s => s.id === p.supplierId)?.name
   }));
   res.json(formattedProducts);
 });
@@ -342,7 +342,7 @@ router.post("/sales", authenticateToken, [body('items').isArray(), body('total')
 router.get("/sales/history", authenticateToken, (req, res) => {
   const history = sales.map(s => ({
     ...s,
-    cashier_name: users.find(u => u.id === s.userId)?.username
+    cashierName: users.find(u => u.id === s.userId)?.username
   })).sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 100);
   res.json(history);
 });
@@ -358,7 +358,7 @@ router.get("/sales/:id", authenticateToken, (req, res) => {
 
   res.json({
     ...sale,
-    cashier_name: users.find(u => u.id === sale.userId)?.username,
+    cashierName: users.find(u => u.id === sale.userId)?.username,
     items
   });
 });
@@ -366,7 +366,7 @@ router.get("/sales/:id", authenticateToken, (req, res) => {
 router.get("/inventory/logs", authenticateToken, isAdmin, (req, res) => {
   const logs = inventoryLogs.map(l => ({
     ...l,
-    product_name: products.find(p => p.id === l.productId)?.name,
+    productName: products.find(p => p.id === l.productId)?.name,
     username: users.find(u => u.id === l.userId)?.username
   })).sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 100);
   res.json(logs);
@@ -403,8 +403,8 @@ router.get("/analytics/summary", authenticateToken, isAdmin, (req, res) => {
 
   const categoriesFlat = Object.entries(catMap).map(([name, value]) => ({ name, value }));
   const bestSellers = Object.entries(bsMap).map(([name, vals]: [string, any]) => ({
-    name, total_sold: vals.sold, total_revenue: vals.revenue
-  })).sort((a, b) => b.total_sold - a.total_sold).slice(0, 5);
+    name, totalSold: vals.sold, totalRevenue: vals.revenue
+  })).sort((a, b) => b.totalSold - a.totalSold).slice(0, 5);
 
   const today = new Date().toISOString().split('T')[0];
   const lowStockCount = products.filter(p => p.stock <= p.lowStockThreshold).length;
@@ -414,11 +414,11 @@ router.get("/analytics/summary", authenticateToken, isAdmin, (req, res) => {
     categories: categoriesFlat,
     bestSellers,
     general: {
-      today_sales_count: dailyMap[today]?.count || 0,
-      today_revenue: dailyMap[today]?.revenue || 0,
-      total_products: products.length,
-      low_stock_count: lowStockCount,
-      total_staff: users.length
+      todaySalesCount: dailyMap[today]?.count || 0,
+      todayRevenue: dailyMap[today]?.revenue || 0,
+      totalProducts: products.length,
+      lowStockCount: lowStockCount,
+      totalStaff: users.length
     }
   });
 });

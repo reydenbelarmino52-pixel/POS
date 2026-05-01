@@ -73,7 +73,7 @@ export default function Cashier() {
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
-                           p.categoryName?.toLowerCase().includes(search.toLowerCase());
+                           (p.categoryName || '').toLowerCase().includes(search.toLowerCase());
       const matchesCategory = selectedCategory === null || p.categoryId === selectedCategory;
       return matchesSearch && matchesCategory;
     });

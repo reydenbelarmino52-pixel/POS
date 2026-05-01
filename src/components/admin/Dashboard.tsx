@@ -73,10 +73,10 @@ export default function Dashboard() {
     );
   }
 
-  const todayRevenue = summary?.general?.today_revenue || 0;
-  const todaySales = summary?.general?.today_sales_count || 0;
-  const totalProducts = summary?.general?.total_products || 0;
-  const lowStock = summary?.general?.low_stock_count || 0;
+  const todayRevenue = summary?.general?.todayRevenue || 0;
+  const todaySales = summary?.general?.todaySalesCount || 0;
+  const totalProducts = summary?.general?.totalProducts || 0;
+  const lowStock = summary?.general?.lowStockCount || 0;
 
   return (
     <div className="space-y-10 pb-12">
@@ -265,11 +265,11 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <p className="text-base font-bold text-slate-900 italic tracking-tight">{item.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{item.total_sold} units integrated</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{item.totalSold} units integrated</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-black text-slate-900 tracking-widest font-mono">${item.total_revenue.toLocaleString()}</p>
+                      <p className="text-lg font-black text-slate-900 tracking-widest font-mono">${item.totalRevenue.toLocaleString()}</p>
                       <div className="flex items-center gap-1 justify-end text-[9px] text-pink-500 font-black uppercase tracking-widest mt-1">
                         <TrendingUp className="w-3 h-3" />
                         Peak Flow
@@ -308,7 +308,7 @@ export default function Dashboard() {
                        cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                        content={<CustomTooltip />} 
                     />
-                    <Bar dataKey="total_sold" name="Total Units Sold" fill="#ec4899" radius={[8, 8, 0, 0]}>
+                    <Bar dataKey="totalSold" name="Total Units Sold" fill="#ec4899" radius={[8, 8, 0, 0]}>
                       {summary.bestSellers.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
