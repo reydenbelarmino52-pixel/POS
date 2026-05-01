@@ -5,7 +5,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import path from "path";
 import fs from "fs";
-import app from "./api/index";
+import app from "./api/server";
 
 async function startServer() {
   const httpServer = createServer(app);

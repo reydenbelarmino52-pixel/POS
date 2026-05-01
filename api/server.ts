@@ -3,6 +3,7 @@ import express from "express";
 import path from "path";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import cors from "cors";
 import { body, validationResult } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -80,7 +81,18 @@ let saleItems: any[] = [];
 let inventoryLogs: any[] = [];
 
 const app = express();
+
+// Use CORS
+app.use(cors());
 app.use(express.json());
+
+// Debug log for Vercel
+app.use((req, res, next) => {
+  console.log(`[API Request] ${req.method} ${req.url}`);
+  next();
+});
+
+const router = express.Router();
 
 // --- Middleware ---
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -106,13 +118,13 @@ const validate = (req: any, res: any, next: any) => {
   next();
 };
 
-// --- API Routes ---
+// --- API Routes on Router ---
 
-app.get("/api/health/mock", (req, res) => {
+router.get("/health/mock", (req, res) => {
   res.json({ status: "ok", provider: "mock-serverless" });
 });
 
-app.post("/api/auth/login", 
+router.post("/auth/login", 
   [
     body('username').isString().trim(),
     body('password').isString(),
@@ -133,7 +145,7 @@ app.post("/api/auth/login",
 );
 
 // Products
-app.get("/api/products", authenticateToken, (req, res) => {
+router.get("/products", authenticateToken, (req, res) => {
   const formattedProducts = products.map(p => ({
     ...p,
     category_name: categories.find(c => c.id === p.categoryId)?.name,
@@ -142,7 +154,7 @@ app.get("/api/products", authenticateToken, (req, res) => {
   res.json(formattedProducts);
 });
 
-app.post("/api/products", 
+router.post("/products", 
   authenticateToken, 
   isAdmin, 
   [
@@ -180,7 +192,7 @@ app.post("/api/products",
   }
 );
 
-app.put("/api/products/:id", authenticateToken, isAdmin, (req: any, res: any) => {
+router.put("/products/:id", authenticateToken, isAdmin, (req: any, res: any) => {
   const idx = products.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Product not found" });
 
@@ -213,7 +225,7 @@ app.put("/api/products/:id", authenticateToken, isAdmin, (req: any, res: any) =>
   res.json({ success: true });
 });
 
-app.delete("/api/products/:id", authenticateToken, isAdmin, (req, res) => {
+router.delete("/products/:id", authenticateToken, isAdmin, (req, res) => {
   const isUsed = saleItems.some(item => item.productId === req.params.id);
   if (isUsed) return res.status(400).json({ error: "Cannot delete product with sales history" });
 
@@ -222,27 +234,27 @@ app.delete("/api/products/:id", authenticateToken, isAdmin, (req, res) => {
 });
 
 // Categories & Suppliers
-app.get("/api/categories", authenticateToken, (req, res) => res.json(categories));
-app.post("/api/categories", authenticateToken, isAdmin, [body('name').notEmpty(), validate], (req, res) => {
+router.get("/categories", authenticateToken, (req, res) => res.json(categories));
+router.post("/categories", authenticateToken, isAdmin, [body('name').notEmpty(), validate], (req, res) => {
   const newCat = { id: uuidv4(), name: req.body.name, createdAt: new Date().toISOString() };
   categories.push(newCat);
   res.json({ id: newCat.id });
 });
 
-app.get("/api/suppliers", authenticateToken, (req, res) => res.json(suppliers));
-app.post("/api/suppliers", authenticateToken, isAdmin, [body('name').notEmpty(), validate], (req, res) => {
+router.get("/suppliers", authenticateToken, (req, res) => res.json(suppliers));
+router.post("/suppliers", authenticateToken, isAdmin, [body('name').notEmpty(), validate], (req, res) => {
   const newSup = { id: uuidv4(), name: req.body.name, contact: req.body.contact, createdAt: new Date().toISOString() };
   suppliers.push(newSup);
   res.json({ id: newSup.id });
 });
 
 // Shifts
-app.get("/api/shifts/current", authenticateToken, (req: any, res) => {
+router.get("/shifts/current", authenticateToken, (req: any, res) => {
   const shift = shifts.find(s => s.userId === req.user.id && s.status === 'open');
   res.json(shift || null);
 });
 
-app.post("/api/shifts/open", authenticateToken, [body('opening_balance').isFloat(), validate], (req: any, res: any) => {
+router.post("/shifts/open", authenticateToken, [body('opening_balance').isFloat(), validate], (req: any, res: any) => {
   const existing = shifts.find(s => s.userId === req.user.id && s.status === 'open');
   if (existing) return res.status(400).json({ error: "Shift already active" });
 
@@ -258,7 +270,7 @@ app.post("/api/shifts/open", authenticateToken, [body('opening_balance').isFloat
   res.json({ id: newShift.id });
 });
 
-app.post("/api/shifts/close", authenticateToken, [body('closing_cash').isFloat(), body('shift_id').isString(), validate], (req: any, res: any) => {
+router.post("/shifts/close", authenticateToken, [body('closing_cash').isFloat(), body('shift_id').isString(), validate], (req: any, res: any) => {
   const shift = shifts.find(s => s.id === req.body.shift_id);
   if (!shift) return res.status(404).json({ error: "Shift not found" });
 
@@ -275,7 +287,7 @@ app.post("/api/shifts/close", authenticateToken, [body('closing_cash').isFloat()
 });
 
 // Sales
-app.post("/api/sales", authenticateToken, [body('items').isArray(), body('total').isFloat(), validate], (req: any, res: any) => {
+router.post("/sales", authenticateToken, [body('items').isArray(), body('total').isFloat(), validate], (req: any, res: any) => {
   const { items, total, discount, tax, payment_method, shift_id, amount_received, change_amount } = req.body;
   
   if (!shift_id) return res.status(400).json({ error: "No active shift" });
@@ -327,7 +339,7 @@ app.post("/api/sales", authenticateToken, [body('items').isArray(), body('total'
   res.json({ id: saleId });
 });
 
-app.get("/api/sales/history", authenticateToken, (req, res) => {
+router.get("/sales/history", authenticateToken, (req, res) => {
   const history = sales.map(s => ({
     ...s,
     cashier_name: users.find(u => u.id === s.userId)?.username
@@ -335,7 +347,7 @@ app.get("/api/sales/history", authenticateToken, (req, res) => {
   res.json(history);
 });
 
-app.get("/api/sales/:id", authenticateToken, (req, res) => {
+router.get("/sales/:id", authenticateToken, (req, res) => {
   const sale = sales.find(s => s.id === req.params.id);
   if (!sale) return res.status(404).json({ error: "Sale not found" });
 
@@ -351,7 +363,7 @@ app.get("/api/sales/:id", authenticateToken, (req, res) => {
   });
 });
 
-app.get("/api/inventory/logs", authenticateToken, isAdmin, (req, res) => {
+router.get("/inventory/logs", authenticateToken, isAdmin, (req, res) => {
   const logs = inventoryLogs.map(l => ({
     ...l,
     product_name: products.find(p => p.id === l.productId)?.name,
@@ -361,7 +373,7 @@ app.get("/api/inventory/logs", authenticateToken, isAdmin, (req, res) => {
 });
 
 // Analytics
-app.get("/api/analytics/summary", authenticateToken, isAdmin, (req, res) => {
+router.get("/analytics/summary", authenticateToken, isAdmin, (req, res) => {
   const dailyMap: any = {};
   sales.forEach(s => {
     const date = s.timestamp.split('T')[0];
@@ -411,4 +423,9 @@ app.get("/api/analytics/summary", authenticateToken, isAdmin, (req, res) => {
   });
 });
 
+// Mount router on both /api and /
+app.use('/api', router);
+app.use('/', router);
+
 export default app;
+
