@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 const openShiftSchema = z.object({
   opening_balance: z.number().min(0, 'Opening balance must be 0 or greater'),
+  shift_code: z.string().min(1, 'Shift code is required'),
 });
 
 const closeShiftSchema = z.object({
@@ -15,6 +16,7 @@ const closeShiftSchema = z.object({
 export default function Shifts() {
   const [currentShift, setCurrentShift] = useState<any>(null);
   const [openingBalance, setOpeningBalance] = useState('');
+  const [shiftCode, setShiftCode] = useState('');
   const [closingCash, setClosingCash] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,8 +37,11 @@ export default function Shifts() {
 
   const handleOpenShift = async () => {
     setError('');
-    const val = parseFloat(openingBalance);
-    const validation = openShiftSchema.safeParse({ opening_balance: val });
+    const balanceVal = parseFloat(openingBalance);
+    const validation = openShiftSchema.safeParse({ 
+      opening_balance: balanceVal,
+      shift_code: shiftCode 
+    });
     
     if (!validation.success) {
       setError(validation.error.issues[0].message);
@@ -44,9 +49,13 @@ export default function Shifts() {
     }
 
     try {
-      const res = await api.post('/shifts/open', { opening_balance: val });
-      setCurrentShift({ id: res.data.id, status: 'open', openingBalance: val, openTime: new Date().toISOString() });
+      const res = await api.post('/shifts/open', { 
+        opening_balance: balanceVal,
+        shift_code: shiftCode
+      });
+      setCurrentShift({ id: res.data.id, status: 'open', openingBalance: balanceVal, openTime: new Date().toISOString() });
       setOpeningBalance('');
+      setShiftCode('');
     } catch (err: any) {
       setError(err.response?.data?.errors?.[0]?.msg || err.response?.data?.error || 'Failed to open shift');
     }
@@ -96,24 +105,40 @@ export default function Shifts() {
                 {error}
               </div>
             )}
-            <div className="space-y-4 text-left">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Opening Balance</label>
-              <div className="relative group">
-                <DollarSign className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
-                <input 
-                  type="number"
-                  placeholder="0.00"
-                  className="w-full pl-16 pr-8 py-6 bg-[#FAF9F6] border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-pink-500/5 text-slate-900 font-mono text-2xl focus:bg-white transition-all shadow-inner"
-                  value={openingBalance}
-                  onChange={(e) => setOpeningBalance(e.target.value)}
-                />
+            <div className="space-y-6 text-left">
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Shift Code</label>
+                <div className="relative group">
+                  <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
+                  <input 
+                    type="password"
+                    placeholder="Enter Security Code"
+                    className="w-full pl-16 pr-8 py-6 bg-[#FAF9F6] border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-pink-500/5 text-slate-900 font-bold text-lg focus:bg-white transition-all shadow-inner tracking-widest"
+                    value={shiftCode}
+                    onChange={(e) => setShiftCode(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Opening Balance</label>
+                <div className="relative group">
+                  <DollarSign className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
+                  <input 
+                    type="number"
+                    placeholder="0.00"
+                    className="w-full pl-16 pr-8 py-6 bg-[#FAF9F6] border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-pink-500/5 text-slate-900 font-mono text-2xl focus:bg-white transition-all shadow-inner"
+                    value={openingBalance}
+                    onChange={(e) => setOpeningBalance(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
             <motion.button 
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleOpenShift}
-              disabled={!openingBalance}
+              disabled={!openingBalance || !shiftCode}
               className="w-full py-6 bg-pink-600 text-white rounded-3xl font-bold text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-pink-200 hover:bg-pink-500 transition-all disabled:bg-slate-100 disabled:text-slate-300 disabled:shadow-none"
             >
               Open Shift

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import api from '../../lib/api';
+import { useAuth } from '../../hooks/useAuth';
 import { Sparkles, Brain, ArrowRight, Lightbulb, TrendingUp, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 import Markdown from 'react-markdown';
