@@ -52,7 +52,7 @@ export default function Login() {
   };
 
   React.useEffect(() => {
-    fetchCaptcha();
+    //fetchCaptcha();
   }, [isLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
