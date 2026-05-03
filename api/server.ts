@@ -10,8 +10,8 @@ import { v4 as uuidv4 } from 'uuid';
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
 
 // --- Mock Data Store (Reset on each function execution in Serverless) ---
-let stores = [
-  { id: 'store-1', name: 'Cathtea Main Branch', ownerId: 'admin-user', createdAt: new Date().toISOString() }
+let stores: any[] = [
+  { id: 'store-1', name: 'Cathtea Main Branch', ownerId: 'admin-user', shift_pin: '1234', createdAt: new Date().toISOString() }
 ];
 
 let users = [
@@ -38,7 +38,9 @@ let categories = [
   { id: 'cat-2', storeId: 'store-1', name: 'Burgers', createdAt: new Date().toISOString() },
   { id: 'cat-3', storeId: 'store-1', name: 'Fries', createdAt: new Date().toISOString() },
   { id: 'cat-4', storeId: 'store-1', name: 'Footlong', createdAt: new Date().toISOString() },
-  { id: 'cat-5', storeId: 'store-1', name: 'Add-ons', createdAt: new Date().toISOString() }
+  { id: 'cat-5', storeId: 'store-1', name: 'Add-ons', createdAt: new Date().toISOString() },
+  { id: 'cat-6', storeId: 'store-1', name: 'Supplies', createdAt: new Date().toISOString() },
+  { id: 'cat-7', storeId: 'store-1', name: 'Raw Materials', createdAt: new Date().toISOString() }
 ];
 
 let suppliers = [
@@ -145,6 +147,38 @@ router.get("/health/mock", (req, res) => {
   res.json({ status: "ok", provider: "mock-serverless" });
 });
 
+router.post("/auth/signup",
+  [
+    body('username').isString().trim().notEmpty(),
+    body('password').isString().isLength({ min: 6 }),
+    validate
+  ],
+  async (req: any, res: any) => {
+    const { username, password } = req.body;
+    
+    if (users.find(u => u.username === username)) {
+      return res.status(400).json({ error: "Username already exists" });
+    }
+
+    const newUser = {
+      id: uuidv4(),
+      username,
+      password: bcrypt.hashSync(password, 10),
+      role: 'admin', // Default first user as admin or just default role
+      storeIds: [],
+      createdAt: new Date().toISOString()
+    };
+    users.push(newUser);
+
+    const token = jwt.sign({ id: newUser.id, username: newUser.username, role: newUser.role, storeIds: newUser.storeIds }, JWT_SECRET);
+    res.json({ 
+      token, 
+      user: { id: newUser.id, username: newUser.username, role: newUser.role, storeIds: newUser.storeIds },
+      stores: []
+    });
+  }
+);
+
 router.post("/auth/login", 
   [
     body('username').isString().trim(),
@@ -182,6 +216,7 @@ router.post("/stores", authenticateToken, [body('name').notEmpty(), validate], (
     id: uuidv4(),
     name: req.body.name,
     ownerId: req.user.id,
+    shift_pin: req.body.shift_pin || '1234',
     createdAt: new Date().toISOString()
   };
   stores.push(newStore);
@@ -196,14 +231,57 @@ router.post("/stores", authenticateToken, [body('name').notEmpty(), validate], (
   res.json(newStore);
 });
 
+router.put("/stores/:id", authenticateToken, [body('name').notEmpty(), validate], (req: any, res: any) => {
+  const idx = stores.findIndex(s => s.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Store not found" });
+  
+  // Basic ownership check
+  if (stores[idx].ownerId !== req.user.id && req.user.role !== 'admin') {
+     return res.status(403).json({ error: "Unauthorized to edit this store" });
+  }
+
+  stores[idx].name = req.body.name;
+  if (req.body.shift_pin) {
+    stores[idx].shift_pin = req.body.shift_pin;
+  }
+  res.json(stores[idx]);
+});
+
+router.delete("/stores/:id", authenticateToken, (req: any, res: any) => {
+  const idx = stores.findIndex(s => s.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Store not found" });
+
+  if (stores[idx].ownerId !== req.user.id && req.user.role !== 'admin') {
+    return res.status(403).json({ error: "Unauthorized to delete this store" });
+  }
+
+  const deletedStoreId = stores[idx].id;
+  stores = stores.filter(s => s.id !== req.params.id);
+  
+  // Optionally remove from all users' storeIds
+  users.forEach(u => {
+    if (u.storeIds) {
+      u.storeIds = u.storeIds.filter(id => id !== deletedStoreId);
+    }
+  });
+
+  res.json({ success: true });
+});
+
 // Products
 router.get("/products", authenticateToken, checkStoreAccess, (req: any, res) => {
   const storeProducts = products.filter(p => p.storeId === req.storeId);
-  const formattedProducts = storeProducts.map(p => ({
-    ...p,
-    categoryName: categories.find(c => c.id === p.categoryId)?.name,
-    supplierName: suppliers.find(s => s.id === p.supplierId)?.name
-  }));
+  const formattedProducts = storeProducts.map(p => {
+    const pSales = saleItems.filter(si => si.productId === p.id);
+    const soldCount = pSales.reduce((sum, si) => sum + si.quantity, 0);
+    
+    return {
+      ...p,
+      categoryName: categories.find(c => c.id === p.categoryId)?.name,
+      supplierName: suppliers.find(s => s.id === p.supplierId)?.name,
+      soldCount
+    };
+  });
   res.json(formattedProducts);
 });
 
@@ -317,15 +395,21 @@ router.get("/shifts/current", authenticateToken, checkStoreAccess, (req: any, re
   res.json(shift || null);
 });
 
-router.post("/shifts/open", authenticateToken, checkStoreAccess, [body('opening_balance').isFloat(), validate], (req: any, res: any) => {
+router.post("/shifts/open", authenticateToken, checkStoreAccess, [body('opening_balance').isFloat(), body('shift_code').notEmpty(), validate], (req: any, res: any) => {
   const existing = shifts.find(s => s.userId === req.user.id && s.storeId === req.storeId && s.status === 'open');
   if (existing) return res.status(400).json({ error: "Shift already active in this store" });
+
+  const store = stores.find(s => s.id === req.storeId);
+  if (store && store.shift_pin && store.shift_pin !== req.body.shift_code) {
+    return res.status(401).json({ error: "Invalid shift code" });
+  }
 
   const newShift = {
     id: uuidv4(),
     userId: req.user.id,
     storeId: req.storeId,
     openingBalance: Number(req.body.opening_balance),
+    shiftCode: req.body.shift_code,
     status: 'open',
     openTime: new Date().toISOString(),
     createdAt: new Date().toISOString()

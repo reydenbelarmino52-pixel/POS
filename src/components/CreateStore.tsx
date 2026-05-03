@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function CreateStore() {
   const [name, setName] = useState('');
+  const [shiftPin, setShiftPin] = useState('');
   const [loading, setLoading] = useState(false);
   const { setStore, refreshStores } = useAuth();
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export default function CreateStore() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await api.post('/stores', { name });
+      const res = await api.post('/stores', { name, shift_pin: shiftPin });
       await refreshStores();
       setStore(res.data);
     } catch (err) {
@@ -51,7 +52,7 @@ export default function CreateStore() {
           <p className="text-slate-400 font-semibold text-[10px] uppercase tracking-[0.2em] mt-2">Initialize your next business location</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-3">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Store Name</label>
             <input 
@@ -64,10 +65,23 @@ export default function CreateStore() {
             />
           </div>
 
+          <div className="space-y-3">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Shift Security Pin (4-8 digits)</label>
+            <input 
+              type="text"
+              required
+              placeholder="e.g. 1234"
+              className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-mono text-sm placeholder:text-slate-300 placeholder:font-normal tracking-widest"
+              value={shiftPin}
+              onChange={(e) => setShiftPin(e.target.value)}
+            />
+            <p className="text-[9px] text-slate-400 font-medium uppercase px-2">This code is required by cashiers to open their shifts.</p>
+          </div>
+
           <button 
             type="submit"
-            disabled={loading || !name.trim()}
-            className="w-full py-5 bg-pink-500 text-white rounded-2xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-pink-400 disabled:bg-slate-100 disabled:text-slate-300 transition-all shadow-xl shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0"
+            disabled={loading || !name.trim() || !shiftPin.trim()}
+            className="w-full py-5 bg-pink-500 text-white rounded-2xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-pink-400 disabled:bg-slate-100 disabled:text-slate-300 transition-all shadow-xl shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 mt-4"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingBag className="w-5 h-5" />}
             {loading ? 'Creating...' : 'Add Store'}

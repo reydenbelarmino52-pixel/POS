@@ -294,6 +294,7 @@ export default function Inventory() {
                 <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Product Details</th>
                 <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Category</th>
                 <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Stock Level</th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Sold</th>
                 <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Price</th>
                 <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
@@ -346,14 +347,19 @@ export default function Inventory() {
                     <div className="flex items-center gap-4">
                       <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden p-0.5">
                         <div 
-                          className={`h-full rounded-full transition-all duration-1000 ${p.stock <= p.lowStockThreshold ? 'bg-amber-500' : 'bg-pink-500'}`}
-                          style={{ width: `${Math.min(((Number(p.stock) || 0) / (Number(p.lowStockThreshold) * 4 || 20)) * 100, 100)}%` }}
+                           className={`h-full rounded-full transition-all duration-1000 ${p.stock <= p.lowStockThreshold ? 'bg-amber-500' : 'bg-pink-500'}`}
+                           style={{ width: `${Math.min(((Number(p.stock) || 0) / (Number(p.lowStockThreshold) * 4 || 20)) * 100, 100)}%` }}
                         />
                       </div>
                       <span className={`text-[11px] font-mono font-bold tracking-tight ${p.stock <= p.lowStockThreshold ? 'text-amber-600' : 'text-slate-600'}`}>
                         {p.stock}
                       </span>
                     </div>
+                  </td>
+                  <td className="px-10 py-5 text-center">
+                     <span className="text-sm font-bold text-slate-400 font-mono italic group-hover:text-pink-500 transition-colors">
+                        {p.soldCount || 0}
+                     </span>
                   </td>
                   <td className="px-10 py-5 text-right font-bold text-slate-900 tracking-tight font-mono text-base">
                     ${p.price.toFixed(2)}
