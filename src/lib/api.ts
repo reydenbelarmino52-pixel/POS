@@ -16,4 +16,14 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === 'ERR_NETWORK') {
+      console.error('Network Error: The API is unreachable. This usually means the backend is not running or redirected incorrectly.');
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

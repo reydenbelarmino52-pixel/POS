@@ -11,8 +11,15 @@ import Groq from "groq-sdk";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
 const CAPTCHA_SECRET = process.env.CAPTCHA_SECRET || "captcha-secret-key";
 
-// Initialize database schema
-(async () => {
+// Environment Check
+const isSupabaseConfigured = !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY && !process.env.SUPABASE_URL.includes('placeholder'));
+
+// Initialize database schema (Lazy/Safe)
+const initSchema = async () => {
+  if (!isSupabaseConfigured) {
+    console.warn("Skipping DB schema init: Supabase credentials missing");
+    return;
+  }
   try {
     await supabase.rpc('exec_sql', { sql: `
       DO $$ 
@@ -30,7 +37,12 @@ const CAPTCHA_SECRET = process.env.CAPTCHA_SECRET || "captcha-secret-key";
   } catch (err) {
     console.error("Failed to initialize database schema:", err);
   }
-})();
+};
+
+// We don't block the module load on this, but we fire it off
+if (isSupabaseConfigured) {
+  initSchema();
+}
 
 /*
   --- SUPABASE SQL SCHEMA ---
@@ -234,16 +246,37 @@ const verifyCaptcha = (req: any, res: any, next: any) => {
 
 // --- API Routes ---
 
+router.get("/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    env: {
+      supabase: isSupabaseConfigured ? "configured" : "MISSING",
+      jwt: !!process.env.JWT_SECRET ? "configured" : "MISSING",
+      groq: !!process.env.GROQ_API_KEY ? "configured" : "not-set (optional)"
+    }
+  });
+});
+
 router.get("/auth/captcha", (req, res) => {
-  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  try {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    if (!CAPTCHA_SECRET) {
+      console.error("CAPTCHA_SECRET is not defined!");
+      return res.status(500).json({ error: "Server Configuration Error: Captcha secret missing" });
+    }
+
+    const captchaToken = jwt.sign({ code }, CAPTCHA_SECRET, { expiresIn: '5m' });
+    res.json({ question: code, captchaToken });
+  } catch (err: any) {
+    console.error("Captcha Generation Error:", err);
+    res.status(500).json({ error: "Captcha Generation Failed", details: err.message });
   }
-
-  const captchaToken = jwt.sign({ code }, CAPTCHA_SECRET, { expiresIn: '5m' });
-
-  res.json({ question: code, captchaToken });
 });
 
 router.post("/auth/signup",
@@ -255,6 +288,9 @@ router.post("/auth/signup",
     validate
   ],
   async (req: any, res: any) => {
+    if (!isSupabaseConfigured) {
+      return res.status(503).json({ error: "Cloud database not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables." });
+    }
     const { username, email, password } = req.body;
     
     const { data: existingUser, error: checkError } = await supabase
@@ -347,6 +383,9 @@ router.post("/auth/login",
     validate
   ],
   async (req: any, res: any) => {
+    if (!isSupabaseConfigured) {
+      return res.status(503).json({ error: "Cloud database not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables." });
+    }
     const { username, password } = req.body;
     
     const { data: user, error } = await supabase.from('users').select('*').eq('username', username).single();
@@ -996,7 +1035,27 @@ router.post("/ai/report", authenticateToken, checkStoreAccess, isAdmin, async (r
   }
 });
 
+// Catch-all for undefined API routes
+router.use((req, res) => {
+  res.status(404).json({ 
+    error: "API Route Not Found", 
+    method: req.method, 
+    path: req.path,
+    hint: "If you see this on a valid route like /auth/login, ensure you are prefixing with /api"
+  });
+});
+
 app.use('/api', router);
-app.use('/', router);
+
+// Global Error Handler
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("GLOBAL ERROR:", err);
+  res.status(500).json({ 
+    error: "Internal Server Error", 
+    message: err.message || "An unexpected error occurred on the server.",
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    path: req.path
+  });
+});
 
 export default app;

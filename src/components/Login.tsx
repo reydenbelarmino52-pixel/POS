@@ -29,6 +29,7 @@ export default function Login() {
 
   const fetchCaptcha = async () => {
     try {
+      setError(''); // Clear errors before fetching
       const { data } = await api.get('/auth/captcha');
       setCaptchaQuestion(data.question);
       setCaptchaToken(data.captchaToken);
@@ -43,8 +44,10 @@ export default function Login() {
         blur: Math.random() * 1.5
       }));
       setCaptchaDistortions(distortions);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch captcha', err);
+      const serverMessage = err.response?.data?.message || err.response?.data?.error;
+      setError(serverMessage ? `Server Error: ${serverMessage}` : 'Connection Error: The security server could not be reached. Please check if the backend is running and environment variables are set.');
     }
   };
 
@@ -82,7 +85,19 @@ export default function Login() {
       const res = await api.post(endpoint, payload);
       login(res.data.token, res.data.user, res.data.stores);
     } catch (err: any) {
-      const apiError = err.response?.data?.errors?.[0]?.msg || err.response?.data?.error || (isLogin ? 'Login failed' : 'Signup failed');
+      console.error('Submission error:', err);
+      let apiError = 'Connection failed';
+      
+      if (err.response?.data) {
+        if (typeof err.response.data === 'string') {
+          apiError = err.response.data.includes('Cannot GET') ? 'Server misconfigured: API route not found' : err.response.data;
+        } else {
+          apiError = err.response.data.errors?.[0]?.msg || err.response.data.error || 'Server error';
+        }
+      } else if (err.message) {
+        apiError = err.message;
+      }
+      
       setError(apiError);
       fetchCaptcha(); // Refresh captcha on failure
     } finally {
