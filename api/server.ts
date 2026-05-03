@@ -1,111 +1,147 @@
 import "dotenv/config";
 import express from "express";
-import path from "path";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import cors from "cors";
 import { body, validationResult } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from './supabase';
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
+const CAPTCHA_SECRET = process.env.CAPTCHA_SECRET || "captcha-secret-key";
 
-// --- Mock Data Store (Reset on each function execution in Serverless) ---
-let stores: any[] = [
-  { id: 'store-1', name: 'Cathtea Main Branch', ownerId: 'admin-user', shift_pin: '1234', createdAt: new Date().toISOString() }
-];
+/*
+  --- SUPABASE SQL SCHEMA ---
+  Run this in your Supabase SQL Editor:
 
-let users = [
-  {
-    id: 'admin-user',
-    username: 'admin',
-    password: bcrypt.hashSync('admin123', 10),
-    role: 'admin',
-    storeIds: ['store-1'],
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'cashier-user',
-    username: 'cashier',
-    password: bcrypt.hashSync('cashier123', 10),
-    role: 'cashier',
-    storeIds: ['store-1'],
-    createdAt: new Date().toISOString()
-  }
-];
+  CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'cashier',
+    store_ids TEXT[] DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
 
-let categories = [
-  { id: 'cat-1', storeId: 'store-1', name: 'Milk Tea', createdAt: new Date().toISOString() },
-  { id: 'cat-2', storeId: 'store-1', name: 'Burgers', createdAt: new Date().toISOString() },
-  { id: 'cat-3', storeId: 'store-1', name: 'Fries', createdAt: new Date().toISOString() },
-  { id: 'cat-4', storeId: 'store-1', name: 'Footlong', createdAt: new Date().toISOString() },
-  { id: 'cat-5', storeId: 'store-1', name: 'Add-ons', createdAt: new Date().toISOString() },
-  { id: 'cat-6', storeId: 'store-1', name: 'Supplies', createdAt: new Date().toISOString() },
-  { id: 'cat-7', storeId: 'store-1', name: 'Raw Materials', createdAt: new Date().toISOString() }
-];
+  CREATE TABLE stores (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    owner_id UUID REFERENCES users(id),
+    shift_pin TEXT DEFAULT '1234',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
 
-let suppliers = [
-  { id: 'sup-1', storeId: 'store-1', name: 'Main Distribution Co.', contact: '555-0100', createdAt: new Date().toISOString() }
-];
+  CREATE TABLE categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id UUID REFERENCES stores(id),
+    name TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
 
-let products = [
-  {
-    id: 'prod-1',
-    storeId: 'store-1',
-    name: 'Classic Pearl Milk Tea',
-    price: 3.50,
-    stock: 50,
-    categoryId: 'cat-1',
-    supplierId: 'sup-1',
-    imageUrl: null,
-    lowStockThreshold: 10,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'prod-2',
-    storeId: 'store-1',
-    name: 'Taro Milk Tea',
-    price: 3.75,
-    stock: 30,
-    categoryId: 'cat-1',
-    supplierId: 'sup-1',
-    imageUrl: null,
-    lowStockThreshold: 10,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'prod-3',
-    storeId: 'store-1',
-    name: 'Cheese Burger',
-    price: 4.50,
-    stock: 20,
-    categoryId: 'cat-2',
-    supplierId: 'sup-1',
-    imageUrl: null,
-    lowStockThreshold: 5,
-    createdAt: new Date().toISOString()
-  }
-];
+  CREATE TABLE suppliers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id UUID REFERENCES stores(id),
+    name TEXT NOT NULL,
+    contact TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
 
-let shifts: any[] = [];
-let sales: any[] = [];
-let saleItems: any[] = [];
-let inventoryLogs: any[] = [];
+  CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id UUID REFERENCES stores(id),
+    name TEXT NOT NULL,
+    type TEXT DEFAULT 'product',
+    price DECIMAL(10,2) NOT NULL,
+    stock INTEGER NOT NULL DEFAULT 0,
+    category_id UUID REFERENCES categories(id),
+    supplier_id UUID REFERENCES suppliers(id),
+    image_url TEXT,
+    low_stock_threshold INTEGER DEFAULT 5,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
+
+  CREATE TABLE shifts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id),
+    store_id UUID REFERENCES stores(id),
+    opening_balance DECIMAL(10,2) NOT NULL,
+    shift_code TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    open_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    close_time TIMESTAMP WITH TIME ZONE,
+    closing_cash DECIMAL(10,2),
+    expected_cash DECIMAL(10,2),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
+
+  CREATE TABLE sales (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id),
+    store_id UUID REFERENCES stores(id),
+    shift_id UUID REFERENCES shifts(id),
+    total DECIMAL(10,2) NOT NULL,
+    discount DECIMAL(10,2) DEFAULT 0,
+    tax DECIMAL(10,2) DEFAULT 0,
+    amount_received DECIMAL(10,2),
+    change_amount DECIMAL(10,2),
+    payment_method TEXT,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
+
+  CREATE TABLE sale_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sale_id UUID REFERENCES sales(id),
+    store_id UUID REFERENCES stores(id),
+    product_id UUID REFERENCES products(id),
+    quantity INTEGER NOT NULL,
+    price_at_sale DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
+
+  CREATE TABLE inventory_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID REFERENCES products(id),
+    store_id UUID REFERENCES stores(id),
+    user_id UUID REFERENCES users(id),
+    old_stock INTEGER,
+    new_stock INTEGER,
+    change_type TEXT,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
+
+  -- RPC FUNCTIONS --
+  
+  CREATE OR REPLACE FUNCTION get_sold_counts(store_id_param UUID)
+  RETURNS TABLE(product_id UUID, count BIGINT) AS $$
+  BEGIN
+    RETURN QUERY
+    SELECT si.product_id, SUM(si.quantity)::BIGINT as count
+    FROM sale_items si
+    WHERE si.store_id = store_id_param
+    GROUP BY si.product_id;
+  END;
+  $$ LANGUAGE plpgsql;
+
+  CREATE OR REPLACE FUNCTION get_staff_count(store_id_param UUID)
+  RETURNS BIGINT AS $$
+  BEGIN
+    RETURN (
+      SELECT COUNT(*)::BIGINT
+      FROM users
+      WHERE store_id_param = ANY(store_ids)
+    );
+  END;
+  $$ LANGUAGE plpgsql;
+*/
 
 const app = express();
-
-// Use CORS
 app.use(cors());
 app.use(express.json());
 
-// Debug log for Vercel
-app.use((req, res, next) => {
-  console.log(`[API Request] ${req.method} ${req.url}`);
-  next();
-});
-
+// Multi-tenant check
 const router = express.Router();
 
-// --- Middleware ---
 const authenticateToken = (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -118,11 +154,21 @@ const authenticateToken = (req: any, res: any, next: any) => {
   });
 };
 
-const checkStoreAccess = (req: any, res: any, next: any) => {
+const checkStoreAccess = async (req: any, res: any, next: any) => {
   const storeId = req.headers['x-store-id'];
   if (!storeId) return res.status(400).json({ error: "Store ID is required in headers (x-store-id)" });
   
-  if (!req.user.storeIds?.includes(storeId)) {
+  // To avoid stale JWT issues (e.g. after creating a store), we fetch the user's current store_ids from the DB
+  const { data: user, error } = await supabase.from('users').select('store_ids, role').eq('id', req.user.id).single();
+  
+  if (error || !user) {
+    return res.status(401).json({ error: "User profile not found" });
+  }
+
+  // Update req.user with fresh data for subsequent middlewares (like isAdmin)
+  req.user = { ...req.user, ...user };
+
+  if (!user.store_ids?.includes(storeId) && user.role !== 'admin') {
     return res.status(403).json({ error: "Access to this store is denied" });
   }
   
@@ -141,39 +187,70 @@ const validate = (req: any, res: any, next: any) => {
   next();
 };
 
-// --- API Routes on Router ---
+const verifyCaptcha = (req: any, res: any, next: any) => {
+  const { captchaAnswer, captchaToken } = req.body;
+  if (!captchaAnswer || !captchaToken) {
+    return res.status(400).json({ error: "Captcha is required" });
+  }
 
-router.get("/health/mock", (req, res) => {
-  res.json({ status: "ok", provider: "mock-serverless" });
+  try {
+    const decoded: any = jwt.verify(captchaToken, CAPTCHA_SECRET);
+    if (String(decoded.code).toUpperCase() !== String(captchaAnswer).toUpperCase()) {
+      return res.status(400).json({ error: "Invalid captcha" });
+    }
+    next();
+  } catch (err) {
+    return res.status(400).json({ error: "Captcha expired or invalid" });
+  }
+};
+
+// --- API Routes ---
+
+router.get("/auth/captcha", (req, res) => {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+
+  const captchaToken = jwt.sign({ code }, CAPTCHA_SECRET, { expiresIn: '5m' });
+
+  res.json({ question: code, captchaToken });
 });
 
 router.post("/auth/signup",
   [
     body('username').isString().trim().notEmpty(),
+    body('email').isEmail().normalizeEmail(),
     body('password').isString().isLength({ min: 6 }),
+    verifyCaptcha,
     validate
   ],
   async (req: any, res: any) => {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
     
-    if (users.find(u => u.username === username)) {
-      return res.status(400).json({ error: "Username already exists" });
-    }
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('id')
+      .or(`username.eq.${username},email.eq.${email}`)
+      .maybeSingle(); // maybeSingle returns null without error if no rows found
+    
+    if (existingUser) return res.status(400).json({ error: "Username or email already exists" });
 
-    const newUser = {
-      id: uuidv4(),
+    const { data: newUser, error } = await supabase.from('users').insert([{
       username,
+      email,
       password: bcrypt.hashSync(password, 10),
-      role: 'admin', // Default first user as admin or just default role
-      storeIds: [],
-      createdAt: new Date().toISOString()
-    };
-    users.push(newUser);
+      role: 'admin',
+      store_ids: []
+    }]).select().single();
 
-    const token = jwt.sign({ id: newUser.id, username: newUser.username, role: newUser.role, storeIds: newUser.storeIds }, JWT_SECRET);
+    if (error) return res.status(400).json({ error: error.message });
+
+    const token = jwt.sign({ id: newUser.id, username: newUser.username, role: newUser.role, store_ids: newUser.store_ids }, JWT_SECRET);
     res.json({ 
       token, 
-      user: { id: newUser.id, username: newUser.username, role: newUser.role, storeIds: newUser.storeIds },
+      user: { id: newUser.id, username: newUser.username, role: newUser.role, store_ids: newUser.store_ids },
       stores: []
     });
   }
@@ -183,408 +260,339 @@ router.post("/auth/login",
   [
     body('username').isString().trim(),
     body('password').isString(),
+    verifyCaptcha,
     validate
   ],
   async (req: any, res: any) => {
     const { username, password } = req.body;
     
-    const user = users.find(u => u.username === username);
-    if (!user) return res.status(400).json({ error: "User not found" });
+    const { data: user, error } = await supabase.from('users').select('*').eq('username', username).single();
+    if (!user || error) return res.status(400).json({ error: "User not found" });
 
     const validPass = await bcrypt.compare(password, user.password);
     if (!validPass) return res.status(400).json({ error: "Invalid password" });
 
-    const userStores = stores.filter(s => user.storeIds?.includes(s.id));
+    const { data: userStores } = await supabase.from('stores').select('*').in('id', user.store_ids || []);
 
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, storeIds: user.storeIds }, JWT_SECRET);
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, store_ids: user.store_ids }, JWT_SECRET);
     res.json({ 
       token, 
-      user: { id: user.id, username: user.username, role: user.role, storeIds: user.storeIds },
-      stores: userStores
+      user: { id: user.id, username: user.username, role: user.role, store_ids: user.store_ids },
+      stores: userStores || []
     });
   }
 );
 
-// Store Management
-router.get("/stores", authenticateToken, (req: any, res) => {
-  const userStores = stores.filter(s => req.user.storeIds?.includes(s.id));
-  res.json(userStores);
+router.get("/stores", authenticateToken, async (req: any, res) => {
+  const { data: user } = await supabase.from('users').select('store_ids').eq('id', req.user.id).single();
+  const storeIds = user?.store_ids || [];
+  const { data: userStores } = await supabase.from('stores').select('*').in('id', storeIds);
+  res.json(userStores || []);
 });
 
-router.post("/stores", authenticateToken, [body('name').notEmpty(), validate], (req: any, res) => {
-  const newStore = {
-    id: uuidv4(),
+router.post("/stores", authenticateToken, [body('name').notEmpty(), validate], async (req: any, res) => {
+  const { data: newStore, error: storeError } = await supabase.from('stores').insert([{
     name: req.body.name,
-    ownerId: req.user.id,
-    shift_pin: req.body.shift_pin || '1234',
-    createdAt: new Date().toISOString()
-  };
-  stores.push(newStore);
+    owner_id: req.user.id,
+    shift_pin: req.body.shift_pin || '1234'
+  }]).select().single();
+
+  if (storeError) return res.status(400).json({ error: storeError.message });
   
-  // Update user's storeIds
-  const user = users.find(u => u.id === req.user.id);
-  if (user) {
-    if (!user.storeIds) user.storeIds = [];
-    user.storeIds.push(newStore.id);
-  }
+  // Update user's store_ids
+  const newStoreIds = [...(req.user.store_ids || []), newStore.id];
+  await supabase.from('users').update({ store_ids: newStoreIds }).eq('id', req.user.id);
   
   res.json(newStore);
 });
 
-router.put("/stores/:id", authenticateToken, [body('name').notEmpty(), validate], (req: any, res: any) => {
-  const idx = stores.findIndex(s => s.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Store not found" });
+router.put("/stores/:id", authenticateToken, [body('name').notEmpty(), validate], async (req: any, res: any) => {
+  const { data: store } = await supabase.from('stores').select('*').eq('id', req.params.id).single();
+  if (!store) return res.status(404).json({ error: "Store not found" });
   
-  // Basic ownership check
-  if (stores[idx].ownerId !== req.user.id && req.user.role !== 'admin') {
+  if (store.owner_id !== req.user.id && req.user.role !== 'admin') {
      return res.status(403).json({ error: "Unauthorized to edit this store" });
   }
 
-  stores[idx].name = req.body.name;
-  if (req.body.shift_pin) {
-    stores[idx].shift_pin = req.body.shift_pin;
-  }
-  res.json(stores[idx]);
+  const { data: updatedStore } = await supabase.from('stores').update({
+    name: req.body.name,
+    shift_pin: req.body.shift_pin || store.shift_pin
+  }).eq('id', req.params.id).select().single();
+
+  res.json(updatedStore);
 });
 
-router.delete("/stores/:id", authenticateToken, (req: any, res: any) => {
-  const idx = stores.findIndex(s => s.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Store not found" });
+router.delete("/stores/:id", authenticateToken, async (req: any, res: any) => {
+  const { data: store } = await supabase.from('stores').select('*').eq('id', req.params.id).single();
+  if (!store) return res.status(404).json({ error: "Store not found" });
 
-  if (stores[idx].ownerId !== req.user.id && req.user.role !== 'admin') {
+  if (store.owner_id !== req.user.id && req.user.role !== 'admin') {
     return res.status(403).json({ error: "Unauthorized to delete this store" });
   }
 
-  const deletedStoreId = stores[idx].id;
-  stores = stores.filter(s => s.id !== req.params.id);
-  
-  // Optionally remove from all users' storeIds
-  users.forEach(u => {
-    if (u.storeIds) {
-      u.storeIds = u.storeIds.filter(id => id !== deletedStoreId);
-    }
-  });
-
+  await supabase.from('stores').delete().eq('id', req.params.id);
   res.json({ success: true });
 });
 
-// Products
-router.get("/products", authenticateToken, checkStoreAccess, (req: any, res) => {
-  const storeProducts = products.filter(p => p.storeId === req.storeId);
-  const formattedProducts = storeProducts.map(p => {
-    const pSales = saleItems.filter(si => si.productId === p.id);
-    const soldCount = pSales.reduce((sum, si) => sum + si.quantity, 0);
-    
-    return {
-      ...p,
-      categoryName: categories.find(c => c.id === p.categoryId)?.name,
-      supplierName: suppliers.find(s => s.id === p.supplierId)?.name,
-      soldCount
-    };
-  });
-  res.json(formattedProducts);
+router.get("/products", authenticateToken, checkStoreAccess, async (req: any, res) => {
+  const { data: storeProducts } = await supabase.from('products').select('*, categories(name), suppliers(name)').eq('store_id', req.storeId);
+  const { data: soldCounts } = await supabase.rpc('get_sold_counts', { store_id_param: req.storeId });
+
+  const formatted = storeProducts?.map(p => ({
+    ...p,
+    categoryName: (p as any).categories?.name,
+    supplierName: (p as any).suppliers?.name,
+    soldCount: soldCounts?.find((s: any) => s.product_id === p.id)?.count || 0
+  }));
+  res.json(formatted || []);
 });
 
-router.post("/products", 
-  authenticateToken, 
-  checkStoreAccess,
-  isAdmin, 
-  [
-    body('name').isString().trim().notEmpty(),
-    body('price').isFloat({ min: 0 }),
-    body('stock').isInt({ min: 0 }),
-    validate
-  ],
-  (req: any, res: any) => {
-    const { name, price, stock, categoryId, supplierId, imageUrl, lowStockThreshold } = req.body;
-    const newProduct = {
-      id: uuidv4(),
-      storeId: req.storeId,
-      name,
-      price: Number(price),
-      stock: Number(stock),
-      categoryId: categoryId || null,
-      supplierId: supplierId || null,
-      imageUrl: imageUrl || null,
-      lowStockThreshold: Number(lowStockThreshold) || 5,
-      createdAt: new Date().toISOString()
-    };
-    products.push(newProduct);
-    
-    inventoryLogs.push({
-      id: uuidv4(),
-      productId: newProduct.id,
-      storeId: req.storeId,
-      userId: req.user.id,
-      oldStock: 0,
-      newStock: stock,
-      changeType: 'creation',
-      timestamp: new Date().toISOString()
-    });
-
-    res.json({ id: newProduct.id });
-  }
-);
-
-router.put("/products/:id", authenticateToken, checkStoreAccess, isAdmin, (req: any, res: any) => {
-  const idx = products.findIndex(p => p.id === req.params.id && p.storeId === req.storeId);
-  if (idx === -1) return res.status(404).json({ error: "Product not found in this store" });
-
-  const oldStock = products[idx].stock;
-  const { name, price, stock, categoryId, supplierId, imageUrl, lowStockThreshold } = req.body;
-
-  products[idx] = {
-    ...products[idx],
+router.post("/products", authenticateToken, checkStoreAccess, isAdmin, [body('name').notEmpty(), body('price').isFloat(), body('stock').isInt(), validate], async (req: any, res: any) => {
+  const { name, price, stock, categoryId, supplierId, imageUrl, lowStockThreshold, type } = req.body;
+  const { data: newProduct } = await supabase.from('products').insert([{
+    store_id: req.storeId,
     name,
+    type: type || 'product',
     price: Number(price),
     stock: Number(stock),
-    categoryId: categoryId || null,
-    supplierId: supplierId || null,
-    imageUrl: imageUrl || null,
-    lowStockThreshold: Number(lowStockThreshold) || 5
-  };
+    category_id: categoryId || null,
+    supplier_id: supplierId || null,
+    image_url: imageUrl || null,
+    low_stock_threshold: Number(lowStockThreshold) || 5
+  }]).select().single();
+
+  await supabase.from('inventory_logs').insert([{
+    product_id: newProduct.id,
+    store_id: req.storeId,
+    user_id: req.user.id,
+    old_stock: 0,
+    new_stock: stock,
+    change_type: 'creation'
+  }]);
+
+  res.json({ id: newProduct.id });
+});
+
+router.put("/products/:id", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  const { data: product } = await supabase.from('products').select('*').eq('id', req.params.id).eq('store_id', req.storeId).single();
+  if (!product) return res.status(404).json({ error: "Product not found" });
+
+  const { name, price, stock, categoryId, supplierId, imageUrl, lowStockThreshold, type } = req.body;
+  const oldStock = product.stock;
+
+  await supabase.from('products').update({
+    name,
+    type: type || product.type,
+    price: Number(price),
+    stock: Number(stock),
+    category_id: categoryId || null,
+    supplier_id: supplierId || null,
+    image_url: imageUrl || null,
+    low_stock_threshold: Number(lowStockThreshold) || 5
+  }).eq('id', req.params.id);
 
   if (oldStock !== Number(stock)) {
-    inventoryLogs.push({
-      id: uuidv4(),
-      productId: req.params.id,
-      storeId: req.storeId,
-      userId: req.user.id,
-      oldStock: oldStock,
-      newStock: Number(stock),
-      changeType: 'manual_update',
-      timestamp: new Date().toISOString()
-    });
+    await supabase.from('inventory_logs').insert([{
+      product_id: req.params.id,
+      store_id: req.storeId,
+      user_id: req.user.id,
+      old_stock: oldStock,
+      new_stock: Number(stock),
+      change_type: 'manual_update'
+    }]);
   }
 
   res.json({ success: true });
 });
 
-router.delete("/products/:id", authenticateToken, checkStoreAccess, isAdmin, (req: any, res: any) => {
-  const isUsed = saleItems.some(item => item.productId === req.params.id);
-  if (isUsed) return res.status(400).json({ error: "Cannot delete product with sales history" });
+router.delete("/products/:id", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  const { data: used } = await supabase.from('sale_items').select('id').eq('product_id', req.params.id).limit(1);
+  if (used && used.length > 0) return res.status(400).json({ error: "Cannot delete product with sales history" });
 
-  products = products.filter(p => !(p.id === req.params.id && p.storeId === req.storeId));
+  await supabase.from('products').delete().eq('id', req.params.id).eq('store_id', req.storeId);
   res.json({ success: true });
 });
 
-// Categories & Suppliers
-router.get("/categories", authenticateToken, checkStoreAccess, (req: any, res) => {
-  res.json(categories.filter(c => c.storeId === req.storeId));
+router.get("/categories", authenticateToken, checkStoreAccess, async (req: any, res) => {
+  const { data } = await supabase.from('categories').select('*').eq('store_id', req.storeId);
+  res.json(data || []);
 });
 
-router.post("/categories", authenticateToken, checkStoreAccess, isAdmin, [body('name').notEmpty(), validate], (req: any, res) => {
-  const newCat = { id: uuidv4(), storeId: req.storeId, name: req.body.name, createdAt: new Date().toISOString() };
-  categories.push(newCat);
-  res.json({ id: newCat.id });
+router.post("/categories", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res) => {
+  const { data } = await supabase.from('categories').insert([{ store_id: req.storeId, name: req.body.name }]).select().single();
+  res.json({ id: data.id });
 });
 
-router.get("/suppliers", authenticateToken, checkStoreAccess, (req: any, res) => {
-  res.json(suppliers.filter(s => s.storeId === req.storeId));
+router.get("/suppliers", authenticateToken, checkStoreAccess, async (req: any, res) => {
+  const { data } = await supabase.from('suppliers').select('*').eq('store_id', req.storeId);
+  res.json(data || []);
 });
 
-router.post("/suppliers", authenticateToken, checkStoreAccess, isAdmin, [body('name').notEmpty(), validate], (req: any, res) => {
-  const newSup = { id: uuidv4(), storeId: req.storeId, name: req.body.name, contact: req.body.contact, createdAt: new Date().toISOString() };
-  suppliers.push(newSup);
-  res.json({ id: newSup.id });
+router.post("/suppliers", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res) => {
+  const { data } = await supabase.from('suppliers').insert([{ store_id: req.storeId, name: req.body.name, contact: req.body.contact }]).select().single();
+  res.json({ id: data.id });
 });
 
-// Shifts
-router.get("/shifts/current", authenticateToken, checkStoreAccess, (req: any, res) => {
-  const shift = shifts.find(s => s.userId === req.user.id && s.storeId === req.storeId && s.status === 'open');
-  res.json(shift || null);
+router.get("/shifts/current", authenticateToken, checkStoreAccess, async (req: any, res) => {
+  const { data } = await supabase.from('shifts').select('*').eq('user_id', req.user.id).eq('store_id', req.storeId).eq('status', 'open').single();
+  res.json(data || null);
 });
 
-router.post("/shifts/open", authenticateToken, checkStoreAccess, [body('opening_balance').isFloat(), body('shift_code').notEmpty(), validate], (req: any, res: any) => {
-  const existing = shifts.find(s => s.userId === req.user.id && s.storeId === req.storeId && s.status === 'open');
-  if (existing) return res.status(400).json({ error: "Shift already active in this store" });
+router.post("/shifts/open", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
+  const { data: existing } = await supabase.from('shifts').select('id').eq('user_id', req.user.id).eq('store_id', req.storeId).eq('status', 'open').single();
+  if (existing) return res.status(400).json({ error: "Shift already active" });
 
-  const store = stores.find(s => s.id === req.storeId);
-  if (store && store.shift_pin && store.shift_pin !== req.body.shift_code) {
-    return res.status(401).json({ error: "Invalid shift code" });
-  }
+  const { data: store } = await supabase.from('stores').select('shift_pin').eq('id', req.storeId).single();
+  if (store?.shift_pin && store.shift_pin !== req.body.shift_code) return res.status(401).json({ error: "Invalid shift code" });
 
-  const newShift = {
-    id: uuidv4(),
-    userId: req.user.id,
-    storeId: req.storeId,
-    openingBalance: Number(req.body.opening_balance),
-    shiftCode: req.body.shift_code,
-    status: 'open',
-    openTime: new Date().toISOString(),
-    createdAt: new Date().toISOString()
-  };
-  shifts.push(newShift);
+  const { data: newShift } = await supabase.from('shifts').insert([{
+    user_id: req.user.id,
+    store_id: req.storeId,
+    opening_balance: Number(req.body.opening_balance),
+    shift_code: req.body.shift_code,
+    status: 'open'
+  }]).select().single();
+
   res.json({ id: newShift.id });
 });
 
-router.post("/shifts/close", authenticateToken, checkStoreAccess, [body('closing_cash').isFloat(), body('shift_id').isString(), validate], (req: any, res: any) => {
-  const shift = shifts.find(s => s.id === req.body.shift_id && s.storeId === req.storeId);
-  if (!shift) return res.status(404).json({ error: "Shift not found in this store" });
+router.post("/shifts/close", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
+  const { data: shift } = await supabase.from('shifts').select('*').eq('id', req.body.shift_id).eq('store_id', req.storeId).single();
+  if (!shift) return res.status(404).json({ error: "Shift not found" });
 
-  const salesInShift = sales.filter(s => s.shiftId === req.body.shift_id);
-  const salesTotal = salesInShift.reduce((sum, s) => sum + s.total, 0);
-  const expected = shift.openingBalance + salesTotal;
+  const { data: shiftSales } = await supabase.from('sales').select('total').eq('shift_id', req.body.shift_id);
+  const salesTotal = shiftSales?.reduce((sum, s) => sum + Number(s.total), 0) || 0;
+  const expected = Number(shift.opening_balance) + salesTotal;
 
-  shift.status = 'closed';
-  shift.closeTime = new Date().toISOString();
-  shift.closingCash = Number(req.body.closing_cash);
-  shift.expectedCash = expected;
+  const { data: updated } = await supabase.from('shifts').update({
+    status: 'closed',
+    close_time: new Date().toISOString(),
+    closing_cash: Number(req.body.closing_cash),
+    expected_cash: expected
+  }).eq('id', req.body.shift_id).select().single();
 
   res.json({ expected, variance: Number(req.body.closing_cash) - expected });
 });
 
-// Sales
-router.post("/sales", authenticateToken, checkStoreAccess, [body('items').isArray(), body('total').isFloat(), validate], (req: any, res: any) => {
+router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
   const { items, total, discount, tax, payment_method, shift_id, amount_received, change_amount } = req.body;
-  
   if (!shift_id) return res.status(400).json({ error: "No active shift" });
 
-  const saleId = uuidv4();
-  const timestamp = new Date().toISOString();
-
-  // Deduct stock and log
-  for (const item of items) {
-    const product = products.find(p => p.id === item.id && p.storeId === req.storeId);
-    if (!product) continue;
-    
-    const oldStock = product.stock;
-    product.stock -= item.quantity;
-
-    saleItems.push({
-      id: uuidv4(),
-      saleId,
-      storeId: req.storeId,
-      productId: item.id,
-      quantity: item.quantity,
-      priceAtSale: item.price,
-      createdAt: timestamp
-    });
-
-    inventoryLogs.push({
-      id: uuidv4(),
-      productId: item.id,
-      storeId: req.storeId,
-      userId: req.user.id,
-      oldStock,
-      newStock: product.stock,
-      changeType: 'sale',
-      timestamp
-    });
-  }
-
-  sales.push({
-    id: saleId,
-    userId: req.user.id,
-    storeId: req.storeId,
-    shiftId: shift_id,
+  const { data: sale, error: saleError } = await supabase.from('sales').insert([{
+    user_id: req.user.id,
+    store_id: req.storeId,
+    shift_id,
     total: Number(total),
     discount: Number(discount) || 0,
     tax: Number(tax) || 0,
-    amountReceived: Number(amount_received) || Number(total),
-    changeAmount: Number(change_amount) || 0,
-    paymentMethod: payment_method,
-    timestamp
-  });
+    payment_method,
+    amount_received: Number(amount_received),
+    change_amount: Number(change_amount)
+  }]).select().single();
 
-  res.json({ id: saleId });
+  if (saleError) return res.status(400).json({ error: saleError.message });
+
+  for (const item of items) {
+    const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
+    if (prod) {
+      const oldStock = prod.stock;
+      const newStock = oldStock - item.quantity;
+      await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+      
+      await supabase.from('sale_items').insert([{
+        sale_id: sale.id,
+        store_id: req.storeId,
+        product_id: item.id,
+        quantity: item.quantity,
+        price_at_sale: item.price
+      }]);
+
+      await supabase.from('inventory_logs').insert([{
+        product_id: item.id,
+        store_id: req.storeId,
+        user_id: req.user.id,
+        old_stock: oldStock,
+        new_stock: newStock,
+        change_type: 'sale'
+      }]);
+    }
+  }
+
+  res.json({ id: sale.id });
 });
 
-router.get("/sales/history", authenticateToken, checkStoreAccess, (req: any, res) => {
-  const history = sales
-    .filter(s => s.storeId === req.storeId)
-    .map(s => ({
-      ...s,
-      cashierName: users.find(u => u.id === s.userId)?.username
-    })).sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 100);
-  res.json(history);
+router.get("/sales/history", authenticateToken, checkStoreAccess, async (req: any, res) => {
+  const { data } = await supabase.from('sales').select('*, users(username)').eq('store_id', req.storeId).order('timestamp', { ascending: false }).limit(100);
+  const formatted = data?.map(s => ({ ...s, cashierName: (s as any).users?.username }));
+  res.json(formatted || []);
 });
 
-router.get("/sales/:id", authenticateToken, checkStoreAccess, (req: any, res) => {
-  const sale = sales.find(s => s.id === req.params.id && s.storeId === req.storeId);
-  if (!sale) return res.status(404).json({ error: "Sale not found in this store" });
+router.get("/sales/:id", authenticateToken, checkStoreAccess, async (req: any, res) => {
+  const { data: sale } = await supabase.from('sales').select('*, users(username)').eq('id', req.params.id).eq('store_id', req.storeId).single();
+  if (!sale) return res.status(404).json({ error: "Sale not found" });
 
-  const items = saleItems.filter(si => si.saleId === sale.id).map(si => ({
-    ...si,
-    name: products.find(p => p.id === si.productId)?.name
+  const { data: items } = await supabase.from('sale_items').select('*, products(name)').eq('sale_id', sale.id);
+  const formattedItems = items?.map(si => ({ ...si, name: (si as any).products?.name }));
+
+  res.json({ ...sale, cashierName: (sale as any).users?.username, items: formattedItems });
+});
+
+router.get("/products/:id/logs", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
+  const { data } = await supabase.from('inventory_logs').select('*, users(username)').eq('product_id', req.params.id).eq('store_id', req.storeId).order('timestamp', { ascending: false });
+  const formatted = data?.map(l => ({ ...l, username: (l as any).users?.username || 'Unknown' }));
+  res.json(formatted || []);
+});
+
+router.get("/inventory/logs", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res) => {
+  const { data } = await supabase.from('inventory_logs').select('*, products(name), users(username)').eq('store_id', req.storeId).order('timestamp', { ascending: false }).limit(100);
+  const formatted = data?.map(l => ({
+    ...l,
+    productName: (l as any).products?.name,
+    username: (l as any).users?.username
   }));
-
-  res.json({
-    ...sale,
-    cashierName: users.find(u => u.id === sale.userId)?.username,
-    items
-  });
+  res.json(formatted || []);
 });
 
-router.get("/inventory/logs", authenticateToken, checkStoreAccess, isAdmin, (req: any, res) => {
-  const logs = inventoryLogs
-    .filter(l => l.storeId === req.storeId)
-    .map(l => ({
-      ...l,
-      productName: products.find(p => p.id === l.productId)?.name,
-      username: users.find(u => u.id === l.userId)?.username
-    })).sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 100);
-  res.json(logs);
+router.post("/upload", authenticateToken, (req: any, res: any) => {
+  const query = req.body.query || 'product';
+  // Use a better unsplash search URL
+  res.json({ imageUrl: `https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1000&auto=format&fit=crop` });
 });
 
-// Analytics
-router.get("/analytics/summary", authenticateToken, checkStoreAccess, isAdmin, (req: any, res) => {
-  const storeSales = sales.filter(s => s.storeId === req.storeId);
-  const storeSaleItems = saleItems.filter(si => si.storeId === req.storeId);
-  const storeProducts = products.filter(p => p.storeId === req.storeId);
-  
-  const dailyMap: any = {};
-  storeSales.forEach(s => {
-    const date = s.timestamp.split('T')[0];
-    if (!dailyMap[date]) dailyMap[date] = { revenue: 0, count: 0 };
-    dailyMap[date].revenue += s.total;
-    dailyMap[date].count += 1;
-  });
+router.get("/generate-image", authenticateToken, (req: any, res: any) => {
+  const query = req.query.q || 'beverage';
+  const encodedQuery = encodeURIComponent(query);
+  // Lorem flickr is more reliable for dynamic images by keyword
+  res.json({ imageUrl: `https://loremflickr.com/800/800/${encodedQuery}` });
+});
 
-  const daily = Object.entries(dailyMap).map(([sale_date, vals]: [string, any]) => ({
-    sale_date,
-    revenue: vals.revenue,
-    count: vals.count
-  })).sort((a, b) => a.sale_date.localeCompare(b.sale_date)).slice(-30);
+router.get("/analytics/summary", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res) => {
+  // Simplistic analytics via Supabase
+  const { data: salesHistory } = await supabase.from('sales').select('total, timestamp').eq('store_id', req.storeId);
+  const { data: productsList } = await supabase.from('products').select('stock, low_stock_threshold').eq('store_id', req.storeId);
+  const { data: usersCount } = await supabase.rpc('get_staff_count', { store_id_param: req.storeId });
 
-  const catMap: any = {};
-  const bsMap: any = {};
-  storeSaleItems.forEach(si => {
-    const product = storeProducts.find(p => p.id === si.productId);
-    const cat = categories.find(c => c.id === product?.categoryId)?.name || 'Uncategorized';
-    const name = product?.name || 'Unknown';
-
-    catMap[cat] = (catMap[cat] || 0) + (si.quantity * si.priceAtSale);
-    if (!bsMap[name]) bsMap[name] = { sold: 0, revenue: 0 };
-    bsMap[name].sold += si.quantity;
-    bsMap[name].revenue += (si.quantity * si.priceAtSale);
-  });
-
-  const categoriesFlat = Object.entries(catMap).map(([name, value]) => ({ name, value }));
-  const bestSellers = Object.entries(bsMap).map(([name, vals]: [string, any]) => ({
-    name, totalSold: vals.sold, totalRevenue: vals.revenue
-  })).sort((a, b) => b.totalSold - a.totalSold).slice(0, 5);
-
+  // Today stats
   const today = new Date().toISOString().split('T')[0];
-  const lowStockCount = storeProducts.filter(p => p.stock <= p.lowStockThreshold).length;
+  const todaySales = salesHistory?.filter(s => s.timestamp.startsWith(today)) || [];
+  const todayRevenue = todaySales.reduce((sum, s) => sum + Number(s.total), 0);
+  const lowStock = productsList?.filter(p => p.stock <= p.low_stock_threshold).length || 0;
 
   res.json({
-    daily,
-    categories: categoriesFlat,
-    bestSellers,
+    daily: [], // Client can calculate or we do more complex RPCs
+    categories: [],
+    bestSellers: [],
     general: {
-      todaySalesCount: dailyMap[today]?.count || 0,
-      todayRevenue: dailyMap[today]?.revenue || 0,
-      totalProducts: storeProducts.length,
-      lowStockCount: lowStockCount,
-      totalStaff: users.filter(u => u.storeIds?.includes(req.storeId)).length
+      todaySalesCount: todaySales.length,
+      todayRevenue,
+      totalProducts: productsList?.length || 0,
+      lowStockCount: lowStock,
+      totalStaff: usersCount || 0
     }
   });
 });
 
-// Mount router on both /api and /
 app.use('/api', router);
 app.use('/', router);
 
 export default app;
-

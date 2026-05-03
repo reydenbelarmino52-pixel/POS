@@ -72,6 +72,9 @@ export default function Cashier() {
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
+      // Only show saleable products in POS
+      if (p.type && p.type !== 'product') return false;
+      
       const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
                            (p.categoryName || '').toLowerCase().includes(search.toLowerCase());
       const matchesCategory = selectedCategory === null || p.categoryId === selectedCategory;
@@ -219,11 +222,14 @@ export default function Cashier() {
                   className={`group relative flex flex-col bg-white p-4 rounded-[2rem] border border-pink-50 transition-all duration-300 text-left overflow-hidden shadow-sm
                     ${p.stock <= 0 ? 'opacity-30 cursor-not-allowed grayscale' : 'hover:-translate-y-1 hover:shadow-xl hover:shadow-pink-400/5 hover:border-pink-200'}`}
                 >
-                  <div className="aspect-square bg-[#FAF9F6] rounded-2xl mb-4 flex items-center justify-center overflow-hidden relative group-hover:scale-[1.02] transition-transform duration-500 border border-black/5">
+                  <div className="aspect-square bg-[#FAF9F6] rounded-3xl mb-5 flex items-center justify-center overflow-hidden relative group-hover:scale-[1.05] transition-all duration-700 border border-black/5 shadow-inner">
                     {p.imageUrl ? (
-                        <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                        <div className="w-full h-full relative">
+                          <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" referrerPolicy="no-referrer" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        </div>
                     ) : (
-                        <Package className="w-8 h-8 text-slate-200 group-hover:text-pink-500 transition-all duration-300" />
+                        <Package className="w-10 h-10 text-slate-200 group-hover:text-pink-500 transition-all duration-500 transform group-hover:rotate-12" />
                     )}
                   </div>
                   

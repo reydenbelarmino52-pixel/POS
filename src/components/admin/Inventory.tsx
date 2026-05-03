@@ -21,6 +21,7 @@ import { z } from 'zod';
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
+  type: z.enum(['product', 'supply']),
   price: z.number().min(0, 'Price must be 0 or greater'),
   stock: z.number().int().min(0, 'Stock must be 0 or greater'),
   categoryId: z.string().optional(),
@@ -63,9 +64,16 @@ export default function Inventory() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
+  const [activeTab, setActiveTab] = useState<'product' | 'supply'>('product');
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [productHistory, setProductHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
   // Form State
   const [formData, setFormData] = useState({
     name: '',
+    type: 'product',
     price: 0,
     stock: 0,
     categoryId: '',
@@ -107,6 +115,25 @@ export default function Inventory() {
     }
   };
 
+  const fetchProductHistory = async (id: string) => {
+    setHistoryLoading(true);
+    try {
+      const { data } = await api.get(`/products/${id}/logs`);
+      setProductHistory(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openHistory = (product: any) => {
+    setSelectedProduct(product);
+    setProductHistory([]);
+    setHistoryModalOpen(true);
+    fetchProductHistory(product.id);
+  };
+
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const validation = categorySchema.safeParse({ name: catName });
@@ -139,6 +166,26 @@ export default function Inventory() {
       fetchData();
     } catch (err: any) {
       alert(err.response?.data?.errors?.[0]?.msg || err.response?.data?.error || 'Failed to add supplier');
+    }
+  };
+
+  const [generating, setGenerating] = useState(false);
+
+  const suggestImage = async () => {
+    if (!formData.name) {
+      alert("Please enter a product name first");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const { data } = await api.get(`/generate-image?q=${encodeURIComponent(formData.name + ' ' + (formData.type === 'supply' ? 'raw material' : 'beverage'))}`);
+      setFormData({ ...formData, imageUrl: data.imageUrl });
+      setPreviewUrl(null);
+      setSelectedFile(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -209,6 +256,7 @@ export default function Inventory() {
     setEditingProduct(product);
     setFormData({
       name: product.name,
+      type: product.type || 'product',
       price: product.price,
       stock: product.stock,
       categoryId: product.categoryId || '',
@@ -272,18 +320,34 @@ export default function Inventory() {
                whileTap={{ scale: 0.98 }}
                onClick={() => {
                  setEditingProduct(null);
-                 setFormData({ name: '', price: 0, stock: 0, categoryId: '', supplierId: '', imageUrl: '', lowStockThreshold: 5 });
+                 setFormData({ name: '', type: activeTab, price: 0, stock: 0, categoryId: '', supplierId: '', imageUrl: '', lowStockThreshold: 5 });
                  setSelectedFile(null);
                  setPreviewUrl(null);
+                 setFormErrors({});
                  setModalOpen(true);
                }}
                className="flex items-center gap-3 px-8 py-5 bg-pink-600 text-white rounded-3xl font-bold text-[10px] uppercase tracking-widest shadow-2xl shadow-pink-200 hover:bg-pink-500 transition-all"
              >
                <Plus className="w-4 h-4" />
-               Add Product
+               Add {activeTab === 'product' ? 'Product' : 'Supply'}
              </motion.button>
           </div>
         </div>
+      </div>
+
+      <div className="flex bg-white/50 backdrop-blur-md p-2 rounded-3xl border border-pink-100/50 w-fit mb-4">
+        <button 
+          onClick={() => setActiveTab('product')}
+          className={`px-8 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'product' ? 'bg-pink-600 text-white shadow-xl shadow-pink-500/20' : 'text-slate-400 hover:text-pink-500'}`}
+        >
+          Saleable Products (Drinks/Food)
+        </button>
+        <button 
+          onClick={() => setActiveTab('supply')}
+          className={`px-8 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'supply' ? 'bg-pink-600 text-white shadow-xl shadow-pink-500/20' : 'text-slate-400 hover:text-pink-500'}`}
+        >
+          Supplies & Raw Materials
+        </button>
       </div>
 
       <div className="bg-white border border-pink-100/50 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-pink-500/5">
@@ -309,13 +373,13 @@ export default function Inventory() {
                      </div>
                    </td>
                 </tr>
-              ) : products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
+              ) : products.filter(p => (p.type || 'product') === activeTab && p.name.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
                 <tr>
-                   <td colSpan={5} className="px-10 py-32 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">
-                     No products found
+                   <td colSpan={6} className="px-10 py-32 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">
+                     No items found in this section
                    </td>
                 </tr>
-              ) : products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).map((p, i) => (
+              ) : products.filter(p => (p.type || 'product') === activeTab && p.name.toLowerCase().includes(search.toLowerCase())).map((p, i) => (
                 <motion.tr 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -343,7 +407,7 @@ export default function Inventory() {
                       {p.categoryName || 'Unassigned'}
                     </span>
                   </td>
-                  <td className="px-10 py-5">
+                  <td className="px-10 py-5 cursor-pointer" onClick={() => openHistory(p)}>
                     <div className="flex items-center gap-4">
                       <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden p-0.5">
                         <div 
@@ -366,6 +430,13 @@ export default function Inventory() {
                   </td>
                   <td className="px-10 py-5 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <button 
+                        onClick={() => openHistory(p)} 
+                        className="p-3 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"
+                        title="View Stock History"
+                      >
+                        <History className="w-4 h-4" />
+                      </button>
                       <button 
                         onClick={() => openEdit(p)} 
                         className="p-3 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"
@@ -402,6 +473,25 @@ export default function Inventory() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Inventory Type</label>
+                    <div className="flex gap-2">
+                      <button 
+                        type="button"
+                        onClick={() => setFormData({ ...formData, type: 'product' })}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${formData.type === 'product' ? 'bg-pink-600 text-white border-pink-600' : 'bg-slate-50 text-slate-400 border-slate-100'}`}
+                      >
+                        Saleable Product
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setFormData({ ...formData, type: 'supply' })}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${formData.type === 'supply' ? 'bg-pink-600 text-white border-pink-600' : 'bg-slate-50 text-slate-400 border-slate-100'}`}
+                      >
+                        Internal Supply
+                      </button>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Product Name</label>
                     <input 
@@ -467,35 +557,59 @@ export default function Inventory() {
                       {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
-                  <div className="md:col-span-2 space-y-4">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-32 h-32 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group">
+                  <div className="md:col-span-2 space-y-6">
+                    <div className="flex flex-col items-center gap-6">
+                      <div className="w-48 h-48 bg-[#FAF9F6] rounded-[2.5rem] border-2 border-dashed border-pink-100 flex items-center justify-center overflow-hidden relative group shadow-inner">
                         {previewUrl || formData.imageUrl ? (
-                          <img src={previewUrl || formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                          <img 
+                            src={previewUrl || formData.imageUrl} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                            referrerPolicy="no-referrer"
+                          />
                         ) : (
-                          <ImageIcon className="w-10 h-10 text-gray-300" />
+                          <div className="flex flex-col items-center gap-2">
+                             <ImageIcon className="w-10 h-10 text-pink-200" />
+                             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Image</span>
+                          </div>
                         )}
-                        <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                          <Upload className="w-6 h-6 text-white" />
+                        <label className="absolute inset-0 bg-pink-600/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center cursor-pointer backdrop-blur-sm">
+                          <Upload className="w-8 h-8 text-white animate-bounce" />
                           <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                         </label>
                       </div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">Click to upload or drag image</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] leading-none text-center">
+                        Tap image to upload or drag & drop<br/>
+                        <span className="text-pink-400 mt-2 block">Standard Ratio 1:1 Recommended</span>
+                      </p>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Image URL (Optional Alternative)</label>
-                      <input 
-                        type="text"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 font-medium"
-                        value={formData.imageUrl}
-                        onChange={(e) => {
-                          setFormData({ ...formData, imageUrl: e.target.value });
-                          setPreviewUrl(null);
-                          setSelectedFile(null);
-                        }}
-                        placeholder="https://images.unsplash.com/..."
-                      />
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Image URL Source</label>
+                        <button 
+                          type="button" 
+                          onClick={suggestImage}
+                          disabled={generating || !formData.name}
+                          className="text-[9px] font-bold text-pink-600 uppercase tracking-[0.2em] flex items-center gap-2 hover:text-pink-700 transition-colors disabled:opacity-30"
+                        >
+                          {generating ? 'Searching...' : '✨ Auto-Suggest Relevant Photo'}
+                        </button>
+                      </div>
+                      <div className="relative group">
+                        <ImageIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
+                        <input 
+                          type="text"
+                          className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:bg-white transition-all text-xs font-medium placeholder:text-slate-300"
+                          value={formData.imageUrl}
+                          onChange={(e) => {
+                            setFormData({ ...formData, imageUrl: e.target.value });
+                            setPreviewUrl(null);
+                            setSelectedFile(null);
+                          }}
+                          placeholder="Paste a link or use suggest above..."
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -642,6 +756,71 @@ export default function Inventory() {
                            </div>
                            <div className="px-4 py-2 bg-white border border-pink-100 rounded-xl text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-pink-500 group-hover:border-pink-200 transition-all">
                               {log.changeType}
+                           </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Product History Modal */}
+      <AnimatePresence>
+        {historyModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHistoryModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+              <div className="p-8 border-b border-pink-50 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 font-display uppercase tracking-tight">{selectedProduct?.name} History</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Registry of all stock movements</p>
+                </div>
+                <button onClick={() => setHistoryModalOpen(false)} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all">
+                   <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8 scrollbar-hide">
+                {historyLoading ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <div className="w-10 h-10 border-4 border-pink-500/10 border-t-pink-500 rounded-full animate-spin"></div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Fetching history...</p>
+                  </div>
+                ) : productHistory.length === 0 ? (
+                  <div className="text-center py-20 text-slate-300 font-bold uppercase text-xs tracking-widest">
+                    No movement records found for this item
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {productHistory.map((log: any) => (
+                      <div key={log.id} className="p-5 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between group">
+                        <div className="flex items-center gap-4">
+                           <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                             log.changeType === 'sale' ? 'bg-amber-100 text-amber-600' : 
+                             log.changeType === 'creation' ? 'bg-emerald-100 text-emerald-600' : 'bg-pink-100 text-pink-600'
+                           }`}>
+                             <ArrowRightLeft className="w-5 h-5" />
+                           </div>
+                           <div>
+                             <p className="text-xs font-bold text-slate-900 uppercase tracking-tight">
+                               {log.changeType === 'sale' ? 'Item Sold' : log.changeType === 'creation' ? 'Product Created' : 'Stock Adjusted'}
+                             </p>
+                             <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest mt-0.5">
+                               {new Date(log.timestamp).toLocaleString()} • {log.username}
+                             </p>
+                           </div>
+                        </div>
+                        <div className="text-right">
+                           <div className="flex items-center gap-2">
+                             <span className="text-[10px] font-mono text-slate-300">{log.oldStock}</span>
+                             <ArrowRightLeft className="w-3 h-3 text-slate-200" />
+                             <span className={`text-sm font-mono font-bold ${log.newStock < log.oldStock ? 'text-rose-500' : 'text-emerald-500'}`}>
+                               {log.newStock}
+                             </span>
                            </div>
                         </div>
                       </div>

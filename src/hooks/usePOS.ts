@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 export interface Product {
   id: string;
   name: string;
+  type: 'product' | 'supply';
   price: number;
   stock: number;
   categoryId?: string;
