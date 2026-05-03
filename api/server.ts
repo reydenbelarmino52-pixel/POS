@@ -9,7 +9,6 @@ import { supabase } from './supabase';
 import Groq from "groq-sdk";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
-const CAPTCHA_SECRET = process.env.CAPTCHA_SECRET || "captcha-secret-key";
 
 // Environment Check
 const isSupabaseConfigured = !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY && !process.env.SUPABASE_URL.includes('placeholder'));
@@ -227,23 +226,6 @@ const validate = (req: any, res: any, next: any) => {
   next();
 };
 
-const verifyCaptcha = (req: any, res: any, next: any) => {
-  const { captchaAnswer, captchaToken } = req.body;
-  if (!captchaAnswer || !captchaToken) {
-    return res.status(400).json({ error: "Captcha is required" });
-  }
-
-  try {
-    const decoded: any = jwt.verify(captchaToken, CAPTCHA_SECRET);
-    if (String(decoded.code).toUpperCase() !== String(captchaAnswer).toUpperCase()) {
-      return res.status(400).json({ error: "Invalid captcha" });
-    }
-    next();
-  } catch (err) {
-    return res.status(400).json({ error: "Captcha expired or invalid" });
-  }
-};
-
 // --- API Routes ---
 
 router.get("/health", (req, res) => {
@@ -259,33 +241,11 @@ router.get("/health", (req, res) => {
   });
 });
 
-router.get("/auth/captcha", (req, res) => {
-  try {
-    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-
-    if (!CAPTCHA_SECRET) {
-      console.error("CAPTCHA_SECRET is not defined!");
-      return res.status(500).json({ error: "Server Configuration Error: Captcha secret missing" });
-    }
-
-    const captchaToken = jwt.sign({ code }, CAPTCHA_SECRET, { expiresIn: '5m' });
-    res.json({ question: code, captchaToken });
-  } catch (err: any) {
-    console.error("Captcha Generation Error:", err);
-    res.status(500).json({ error: "Captcha Generation Failed", details: err.message });
-  }
-});
-
 router.post("/auth/signup",
   [
     body('username').isString().trim().notEmpty(),
     body('email').isEmail().normalizeEmail(),
     body('password').isString().isLength({ min: 6 }),
-    verifyCaptcha,
     validate
   ],
   async (req: any, res: any) => {
@@ -377,7 +337,6 @@ router.post("/auth/login",
   [
     body('username').isString().trim(),
     body('password').isString(),
-    verifyCaptcha,
     validate
   ],
   async (req: any, res: any) => {
