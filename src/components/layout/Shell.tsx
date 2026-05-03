@@ -102,74 +102,82 @@ export default function Shell({ children }: ShellProps) {
       </AnimatePresence>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-72 backdrop-blur-2xl bg-white border-r border-[#E5E7EB] sticky top-0 h-screen z-20 print:hidden shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="p-10">
-          <h1 className="text-3xl font-display font-bold tracking-tighter text-slate-900 flex items-center gap-3 uppercase">
-            <div className="w-10 h-10 bg-pink-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-pink-200">
-              <span className="text-white font-bold text-sm">CT</span>
+      <aside className="hidden md:flex flex-col w-72 backdrop-blur-3xl bg-white/80 border-r border-[#E5E7EB] sticky top-0 h-screen z-20 print:hidden shadow-[4px_0_24px_rgba(0,0,0,0.01)]">
+        <div className="p-10 pb-6">
+          <h1 className="text-3xl font-display font-medium tracking-tighter text-slate-900 flex items-center gap-3 uppercase">
+            <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200 overflow-hidden relative group/logo">
+              <div className="absolute inset-0 bg-pink-600 translate-y-full group-hover/logo:translate-y-0 transition-transform duration-500"></div>
+              <span className="text-white font-bold text-sm relative z-10">CT</span>
             </div>
-            {currentStore?.name || 'Cathtea POS'}
+            <span className="leading-none">{currentStore?.name?.split(' ')[0] || 'Cathtea'}</span>
           </h1>
         </div>
         
-        <nav className="flex-1 px-6 space-y-3">
-          <div className="px-4 mb-8">
+        <nav className="flex-1 px-6 space-y-1.5 overflow-y-auto scrollbar-hide">
+          <div className="px-4 mb-10 mt-4">
              <button 
               onClick={() => navigate('/select-store')}
-              className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:border-pink-300 hover:bg-white transition-all group"
+              className="w-full flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-2xl hover:border-pink-200 hover:bg-white transition-all group shadow-sm active:scale-[0.98]"
              >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-white border border-slate-200 rounded-xl flex items-center justify-center group-hover:bg-pink-50 group-hover:border-pink-200">
-                    <Store className="w-4 h-4 text-slate-400 group-hover:text-pink-500" />
+                  <div className="w-8 h-8 bg-white border border-slate-200 rounded-xl flex items-center justify-center group-hover:bg-pink-50 group-hover:border-pink-100">
+                    <Store className="w-4 h-4 text-slate-400 group-hover:text-pink-500 transition-colors" />
                   </div>
                   <div className="text-left overflow-hidden">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Store</p>
-                    <p className="text-xs font-bold text-slate-900 uppercase truncate">{currentStore?.name}</p>
+                    <p className="micro-label !text-[8px] opacity-60">Location</p>
+                    <p className="text-xs font-bold text-slate-900 uppercase truncate tracking-tight">{currentStore?.name}</p>
                   </div>
                 </div>
-                <RefreshCw className="w-3 h-3 text-slate-300 group-hover:text-pink-500" />
+                <RefreshCw className="w-3 h-3 text-slate-300 group-hover:text-pink-500 group-hover:rotate-180 transition-all duration-700" />
              </button>
           </div>
 
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] px-4 mb-4">Navigation</p>
+          <p className="micro-label px-4 mb-4 opacity-50">Operational Hub</p>
           {filteredNav.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               className={({ isActive }) => `
-                flex items-center gap-3 px-6 py-4 rounded-2xl text-[13px] font-bold transition-all duration-500 group relative
+                flex items-center gap-4 px-5 py-4 rounded-2xl text-[12px] font-bold transition-all duration-300 group relative overflow-hidden
                 ${isActive 
-                  ? 'bg-slate-900 text-white shadow-2xl shadow-slate-200' 
-                  : 'text-slate-500 hover:bg-pink-50 hover:text-pink-600'
+                  ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' 
+                  : 'text-slate-500 hover:bg-pink-50/50 hover:text-slate-900'
                 }
               `}
             >
-              <item.icon className={`w-4 h-4 transition-transform group-hover:scale-110`} />
-              <span className="uppercase tracking-widest">{item.name}</span>
-              {location.pathname === item.path && (
-                <motion.div layoutId="nav-pill" className="absolute right-4 w-1.5 h-1.5 bg-pink-500 rounded-full" />
+              {({ isActive }) => (
+                <>
+                  <item.icon className="w-4 h-4 transition-transform group-hover:scale-110 group-hover:text-pink-500" />
+                  <span className="uppercase tracking-[0.15em] relative z-10">{item.name}</span>
+                  {isActive && (
+                    <motion.div layoutId="nav-pill" className="absolute right-4 w-1.5 h-1.5 bg-pink-500 rounded-full shadow-[0_0_8px_rgba(236,72,153,0.6)]" />
+                  )}
+                  {!isActive && (
+                    <div className="absolute inset-y-0 left-0 w-1 bg-pink-600 -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
+                  )}
+                </>
               )}
             </NavLink>
           ))}
         </nav>
 
         <div className="p-8 mt-auto">
-          <div className="p-6 bg-[#FAF9F6] border border-slate-100 rounded-[2rem] shadow-inner mb-6">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-12 h-12 rounded-[1.25rem] bg-pink-600 flex items-center justify-center text-sm font-bold text-white shadow-xl shadow-pink-200 uppercase">
+          <div className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2.5rem] relative overflow-hidden group/profile">
+            <div className="flex items-center gap-4 mb-6 relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-sm font-bold text-white shadow-lg uppercase group-hover/profile:bg-pink-600 transition-colors duration-500">
                 {user?.username[0]}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-slate-900 truncate uppercase tracking-tighter">{user?.username}</p>
-                <p className="text-[10px] text-pink-500 font-semibold uppercase tracking-[0.2em]">{user?.role}</p>
+                <p className="micro-label !text-pink-500 opacity-80 mt-0.5">{user?.role}</p>
               </div>
             </div>
             <button 
               onClick={logout}
-              className="w-full flex items-center justify-center gap-2 py-3 text-[10px] font-bold text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all duration-300 uppercase tracking-widest border border-transparent hover:border-rose-100"
+              className="w-full flex items-center justify-center gap-3 py-3 text-[10px] font-bold text-slate-400 hover:text-rose-600 hover:bg-white border border-transparent hover:border-rose-100 rounded-xl transition-all duration-300 uppercase tracking-widest relative z-10"
             >
               <LogOut className="w-4 h-4" />
-              Sign Out
+              Terminate Session
             </button>
           </div>
         </div>

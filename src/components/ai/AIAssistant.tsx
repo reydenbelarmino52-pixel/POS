@@ -32,68 +32,81 @@ export default function AIAssistant() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-10 pb-12">
       {/* Search Bar / Header */}
-      <div className="relative p-12 bg-white rounded-[3rem] overflow-hidden shadow-2xl border border-pink-100 shadow-pink-50">
-        <div className="absolute top-0 right-0 p-12 opacity-5 blur-xl">
-           <Brain className="w-64 h-64 text-slate-900" />
+      <div className="relative p-12 lg:p-20 bg-white rounded-[4rem] overflow-hidden border border-slate-200 shadow-sm relative group">
+        <div className="absolute top-0 right-0 p-12 opacity-5 blur-xl pointer-events-none group-hover:opacity-10 transition-opacity">
+           <Brain className="w-96 h-96 text-slate-900" />
         </div>
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-pink-500/[0.02] to-transparent pointer-events-none"></div>
         
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-pink-500/10 text-pink-600 rounded-full text-[10px] font-bold uppercase tracking-widest mb-6 backdrop-blur-sm border border-pink-500/20">
-            <Sparkles className="w-3.5 h-3.5" />
-            Business Intelligence
+        <div className="relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-3 px-4 py-2 bg-slate-900 text-white rounded-full text-[9px] font-bold uppercase tracking-[0.3em] mb-10 overflow-hidden relative group/pill shadow-xl">
+            <div className="absolute inset-0 bg-pink-600 translate-x-full group-hover/pill:translate-x-0 transition-transform duration-500 opacity-50"></div>
+            <Sparkles className="w-3.5 h-3.5 text-pink-400 relative z-10" />
+            <span className="relative z-10">Advanced Business Logic</span>
           </div>
-          <h2 className="text-4xl font-bold text-slate-900 mb-4 tracking-tighter uppercase font-display">Business Insights</h2>
-          <p className="text-slate-500 max-w-xl text-lg mb-10 font-medium">Use AI-powered analysis to identify operational trends and optimize your business performance.</p>
+          <h2 className="text-5xl lg:text-7xl font-medium text-slate-900 mb-6 tracking-tighter uppercase font-display leading-[0.9]">Deep Business Insights</h2>
+          <p className="text-slate-500 text-lg mb-12 font-medium leading-relaxed">Synthesize inventory data, sales velocity, and operational metrics into actionable executive reports powered by Groq Llama-3.</p>
           
           <button 
             onClick={generateInsight}
             disabled={loading}
-            className="px-8 py-5 bg-pink-600 text-white rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-pink-500 transition-all shadow-xl active:translate-y-0.5 outline-none shadow-pink-200"
+            className="group px-10 py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-xs uppercase tracking-[0.2em] flex items-center gap-4 hover:bg-pink-600 transition-all duration-500 shadow-2xl relative overflow-hidden active:scale-95 disabled:grayscale"
           >
-            {loading ? 'Analyzing Data...' : 'Generate AI Report'}
-            <ArrowRight className="w-4 h-4" />
+            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>
+            {loading ? (
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                Analyzing Ecosystem...
+              </div>
+            ) : 'Generate Executive Report'}
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Insight Display */}
-        <div className="lg:col-span-2">
-           <div className="backdrop-blur-md bg-white border border-pink-100 p-10 md:p-14 rounded-[3.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.05)] min-h-[500px]">
+        <div className="lg:col-span-3">
+           <div className="technical-card p-12 lg:p-20 min-h-[600px] border-slate-200 shadow-2xl shadow-slate-100 bg-white/50 backdrop-blur-3xl relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               {insight ? (
-                <div className="prose prose-sm max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-p:text-slate-600 prose-li:text-slate-600 prose-strong:text-pink-600 prose-code:text-pink-500 h-full">
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="prose prose-sm lg:prose-base max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tighter prose-headings:text-slate-900 prose-p:text-slate-500 prose-p:font-medium prose-li:text-slate-500 prose-li:font-medium prose-strong:text-slate-900 prose-code:text-pink-600 h-full selection:bg-pink-100"
+                >
                   <Markdown>{insight}</Markdown>
-                </div>
+                </motion.div>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center py-20">
-                  <div className="w-16 h-16 bg-pink-50 rounded-3xl flex items-center justify-center mb-6 border border-pink-100 shadow-inner">
-                    <Lightbulb className="w-8 h-8 text-pink-500 animate-pulse" />
+                <div className="h-full flex flex-col items-center justify-center text-center py-20 grayscale opacity-40">
+                  <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mb-10 border border-slate-100 shadow-inner group-hover:scale-110 group-hover:rotate-12 transition-all duration-700">
+                    <Lightbulb className="w-10 h-10 text-slate-400" />
                   </div>
-                  <p className="text-xl font-bold text-slate-900 uppercase tracking-tight mb-2">No Active Insights</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-xs">Run the analysis to generate AI-powered business reports.</p>
+                  <p className="text-2xl font-display font-medium text-slate-900 uppercase tracking-tight mb-4">Awaiting Signal</p>
+                  <p className="micro-label max-w-xs">Initialize analysis to populate this register with business intelligence reports.</p>
                 </div>
               )}
            </div>
         </div>
 
-        {/* Quick Suggestion Cards */}
+        {/* Info Cards */}
         <div className="space-y-6">
-           <div className="backdrop-blur-md bg-white p-8 rounded-[2.5rem] border border-pink-100 shadow-sm group hover:border-pink-500 transition-all shadow-pink-50/50">
-              <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mb-6 group-hover:bg-amber-500 group-hover:text-white transition-all border border-amber-100">
-                <AlertTriangle className="w-6 h-6" />
+           <div className="technical-card p-8 group">
+              <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center mb-6 border border-slate-100 group-hover:bg-pink-600 group-hover:text-white transition-all shadow-sm">
+                <AlertTriangle className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-slate-900 tracking-tight uppercase mb-3 text-lg">Inventory Tracking</h4>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">Identifies items that are low in stock and provides reordering suggestions.</p>
+              <h4 className="font-bold text-slate-900 tracking-tight uppercase mb-3 font-sans">Stock Health</h4>
+              <p className="micro-label leading-relaxed opacity-60">Monitors SKU counts against historical burn-rates to prevent stock-outs.</p>
            </div>
 
-           <div className="backdrop-blur-md bg-white p-8 rounded-[2.5rem] border border-pink-100 shadow-sm group hover:border-pink-500 transition-all shadow-pink-50/50">
-              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mb-6 group-hover:bg-emerald-500 group-hover:text-white transition-all border border-emerald-100">
-                <TrendingUp className="w-6 h-6" />
+           <div className="technical-card p-8 group">
+              <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center mb-6 border border-slate-100 group-hover:bg-pink-600 group-hover:text-white transition-all shadow-sm">
+                <TrendingUp className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-slate-900 tracking-tight uppercase mb-3 text-lg">Sales Performance</h4>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">Detailed analysis of revenue trends and product performance over time.</p>
+              <h4 className="font-bold text-slate-900 tracking-tight uppercase mb-3 font-sans">Velocity Analysis</h4>
+              <p className="micro-label leading-relaxed opacity-60">Statistical evaluation of revenue density across your branch active hours.</p>
            </div>
         </div>
       </div>

@@ -466,22 +466,34 @@ function StatCard({ title, value, trend, positive, icon: Icon, subtitle }: any) 
   return (
     <motion.div 
       whileHover={{ scale: 1.02, translateY: -5 }}
-      className="bg-white p-8 rounded-[2.5rem] border border-pink-100/50 shadow-xl relative overflow-hidden group transition-all duration-500 hover:shadow-2xl shadow-pink-500/5"
+      className="technical-card p-10 group relative overflow-hidden transition-all duration-700"
     >
-      <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/5 blur-[60px] group-hover:bg-pink-500/10 transition-colors pointer-events-none"></div>
-      <div className="flex items-center justify-between mb-8 relative z-10">
-        <div className="p-4 bg-[#FAF9F6] rounded-2xl border border-slate-100 group-hover:border-pink-200 transition-colors shadow-inner">
-          <Icon className="w-6 h-6 text-pink-500" />
+      <div className="absolute top-0 right-0 w-40 h-40 bg-pink-500/[0.03] blur-[60px] group-hover:bg-pink-500/[0.08] transition-colors pointer-events-none"></div>
+      
+      <div className="flex items-center justify-between mb-10 relative z-10">
+        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white group-hover:border-pink-200 transition-all shadow-sm">
+          <Icon className="w-6 h-6 text-slate-900 group-hover:text-pink-500 transition-colors" />
         </div>
-        <div className={`flex items-center gap-1.5 text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm ${positive ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'}`}>
-          {trend}
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm border transition-colors ${
+          positive 
+            ? 'bg-emerald-50/50 text-emerald-600 border-emerald-100' 
+            : 'bg-rose-50/50 text-rose-600 border-rose-100'
+        }`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${positive ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`}></div>
+          <span className="micro-label !text-[8px] tracking-widest">{trend}</span>
         </div>
       </div>
+
       <div className="relative z-10">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{title}</p>
-        <p className="text-4xl font-display font-bold text-slate-900 tracking-tighter mb-2">{value}</p>
-        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest opacity-60">{subtitle}</p>
+        <p className="micro-label mb-2 opacity-60 group-hover:opacity-100 transition-opacity">{title}</p>
+        <div className="flex items-baseline gap-2">
+          <p className="text-5xl font-display font-medium text-slate-900 tracking-tighter leading-none">{value}</p>
+          {positive && <TrendingUp className="w-4 h-4 text-emerald-500 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0" />}
+        </div>
+        <p className="micro-label !text-[9px] mt-4 opacity-40 group-hover:opacity-60 transition-opacity">{subtitle}</p>
       </div>
+
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-pink-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
     </motion.div>
   );
 }

@@ -8,24 +8,42 @@
   
   --color-glass: rgba(255, 255, 255, 0.8);
   --color-glass-border: rgba(0, 0, 0, 0.05);
+
+  --color-brand-pink: #ec4899;
+  --color-brand-rose: #e11d48;
+  --color-brand-slate: #0f172a;
+  --color-surface: #FAF9F6;
 }
 
 @layer base {
   body {
     @apply bg-[#FAF9F6] text-slate-900 antialiased selection:bg-pink-100 selection:text-pink-900;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight;
+    @apply font-display tracking-tight leading-[0.95];
   }
 }
 
 .frosted-glass {
-  @apply backdrop-blur-xl bg-white/80 border border-black/5 shadow-[0_8px_32px_rgba(0,0,0,0.04)];
+  @apply backdrop-blur-xl bg-white/70 border border-black/5 shadow-[0_8px_32px_rgba(0,0,0,0.04)];
 }
 
 .frosted-pink {
   @apply backdrop-blur-md bg-pink-500/5 border border-pink-500/10;
+}
+
+.technical-card {
+  @apply bg-white border border-slate-200/60 shadow-[0_2px_12px_rgba(0,0,0,0.02)] rounded-[2rem] transition-all duration-300;
+}
+
+.technical-card:hover {
+  @apply border-pink-500/20 shadow-[0_20px_40px_rgba(236,72,153,0.05)] -translate-y-1;
+}
+
+.micro-label {
+  @apply text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
@@ -34,4 +52,9 @@
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }

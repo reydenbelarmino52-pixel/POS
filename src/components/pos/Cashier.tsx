@@ -274,15 +274,15 @@ export default function Cashier() {
                   </div>
                   
                   <div className="px-1">
-                    <h3 className="text-[13px] font-bold text-slate-900 truncate mb-0.5 tracking-tight group-hover:text-pink-600 transition-colors uppercase">{p.name}</h3>
-                    <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest mb-4">{p.categoryName || 'Generic'}</p>
+                    <h3 className="text-[13px] font-bold text-slate-900 truncate mb-0.5 tracking-tight group-hover:text-pink-600 transition-colors uppercase font-sans">{p.name}</h3>
+                    <p className="micro-label !text-[8px] mb-4 opacity-50">{p.categoryName || 'Generic'}</p>
                     
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold text-slate-900 tracking-tight font-mono">${(Number(p.price) || 0).toFixed(2)}</span>
-                      <span className={`text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border
-                        ${p.stock > 5 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-                        {p.stock}
-                      </span>
+                    <div className="flex items-center justify-between border-t border-slate-50 pt-3 mt-auto">
+                      <span className="text-base font-bold text-slate-900 tracking-tighter font-mono">${(Number(p.price) || 0).toFixed(2)}</span>
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-1 h-1 rounded-full ${p.stock > 5 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`}></div>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{p.stock} AV</span>
+                      </div>
                     </div>
                   </div>
                 </motion.button>
