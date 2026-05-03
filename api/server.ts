@@ -7,6 +7,7 @@ import { body, validationResult } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from './supabase';
 import Groq from "groq-sdk";
+import serverless from "serverless-http";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
 
@@ -476,13 +477,13 @@ router.put("/products/:id", authenticateToken, checkStoreAccess, isAdmin, async 
   }).eq('id', req.params.id);
 
   if (oldStock !== Number(stock)) {
-    // Emit real-time update
+    // Emit real-time update (Only works on persistent servers like Render/Railway)
     const io = req.app.get('io');
     if (io) {
       io.emit('inventory_update', { id: req.params.id, stock: Number(stock) });
     }
 
-    // Broadcast low stock alert if threshold reached
+    // Broadcast low stock alert if threshold reached (Only works on persistent servers)
     const wss = req.app.get('wss');
     if (wss && Number(stock) <= (Number(lowStockThreshold) || 5)) {
       wss.clients.forEach((client: any) => {
@@ -1012,4 +1013,5 @@ app.use((err: any, req: any, res: any, next: any) => {
   });
 });
 
+export const handler = serverless(app);
 export default app;

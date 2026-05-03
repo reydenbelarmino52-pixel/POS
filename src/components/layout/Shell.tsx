@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'motion/react';
-import socket from '../../lib/socket';
+import { supabase } from '../../lib/supabase';
 
 interface ShellProps {
   children: React.ReactNode;
@@ -36,42 +36,38 @@ export default function Shell({ children }: ShellProps) {
   const [activeToast, setActiveToast] = useState<any | null>(null);
 
   React.useEffect(() => {
-    // Establish a WebSocket connection to the '/inventory/low-stock' endpoint
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/inventory/low-stock`;
-    const ws = new WebSocket(wsUrl);
+    // Subscribe to products for low stock alerts
+    const channel = supabase
+      .channel('low-stock-alerts')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'products',
+        },
+        (payload) => {
+          const product = payload.new as any;
+          if (product.stock <= (product.low_stock_threshold || 5)) {
+            const newNotification = { 
+              id: Date.now(), 
+              message: `Low stock: ${product.name} (${product.stock} left)`, 
+              type: 'warning' 
+            };
+            setNotifications(prev => [newNotification, ...prev]);
+            setActiveToast(newNotification);
+            
+            // Auto-dismiss toast
+            setTimeout(() => {
+              setActiveToast((current: any) => current?.id === newNotification.id ? null : current);
+            }, 5000);
+          }
+        }
+      )
+      .subscribe();
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const newNotification = { 
-          id: Date.now(), 
-          message: `Low stock: ${data.name} (${data.stock} left)`, 
-          type: 'warning' 
-        };
-        setNotifications(prev => [newNotification, ...prev]);
-        setActiveToast(newNotification);
-        
-        // Auto-dismiss toast
-        setTimeout(() => {
-          setActiveToast((current: any) => current?.id === newNotification.id ? null : current);
-        }, 5000);
-      } catch (err) {
-        console.error('Failed to parse low stock alert', err);
-      }
-    };
-
-    ws.onclose = () => {
-      console.log('Low stock WebSocket closed');
-    };
-
-    ws.onerror = (error) => {
-      console.error('Low stock WebSocket error:', error);
-    };
-
-    // Clean up connection on unmount
     return () => {
-      ws.close();
+      supabase.removeChannel(channel);
     };
   }, []);
 

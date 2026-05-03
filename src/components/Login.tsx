@@ -48,19 +48,22 @@ export default function Login() {
       login(res.data.token, res.data.user, res.data.stores);
     } catch (err: any) {
       console.error('Submission error:', err);
-      let apiError = 'Connection failed';
+      let apiError: string = 'Connection failed';
       
       if (err.response?.data) {
-        if (typeof err.response.data === 'string') {
-          apiError = err.response.data.includes('Cannot GET') ? 'Server misconfigured: API route not found' : err.response.data;
-        } else {
-          apiError = err.response.data.errors?.[0]?.msg || err.response.data.error || 'Server error';
+        const data = err.response.data;
+        if (typeof data === 'string') {
+          apiError = data.includes('Cannot GET') ? 'Server misconfigured: API route not found' : data;
+        } else if (typeof data === 'object' && data !== null) {
+          // Flatten potential error objects or arrays to strings
+          const possibleError = data.errors?.[0]?.msg || data.error || data.message;
+          apiError = typeof possibleError === 'string' ? possibleError : JSON.stringify(possibleError) || 'Server error';
         }
       } else if (err.message) {
-        apiError = err.message;
+        apiError = String(err.message);
       }
       
-      setError(apiError);
+      setError(String(apiError));
     } finally {
       setLoading(false);
     }

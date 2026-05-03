@@ -1,13 +1,12 @@
-import { io } from 'socket.io-client';
+// NOTE: Socket.io is disabled as this application is optimized for Serverless deployments (Vercel/Netlify).
+// Real-time updates are now handled via Supabase Realtime in src/lib/supabase.ts
 
-const socket = io({
-  reconnectionAttempts: 10,
-  timeout: 10000,
-  autoConnect: true
-});
-
-socket.on('connect_error', (error) => {
-  console.warn('Socket connection error:', error.message);
-});
+const socket = {
+  on: () => {},
+  off: () => {},
+  emit: () => {},
+  connect: () => {},
+  disconnect: () => {},
+};
 
 export default socket;

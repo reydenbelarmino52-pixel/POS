@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Minus, Trash2, CreditCard, Banknote, User, Receipt, XCircle, ShoppingCart, Package, ArrowRight } from 'lucide-react';
 import { usePOS, Product } from '../../hooks/usePOS';
 import api from '../../lib/api';
-import socket from '../../lib/socket';
+import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Cashier() {
@@ -40,11 +40,26 @@ export default function Cashier() {
     fetchCategories();
     fetchCurrentShift();
 
-    socket.on('inventory_update', (data) => {
-        setProducts(prev => prev.map(p => p.id === data.id ? { ...p, stock: data.stock } : p));
-    });
+    // Subscribe to all changes in the products table
+    const channel = supabase
+      .channel('inventory-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'products',
+        },
+        (payload) => {
+          const updatedProduct = payload.new as Product;
+          setProducts(prev => prev.map(p => p.id === updatedProduct.id ? { ...p, stock: updatedProduct.stock } : p));
+        }
+      )
+      .subscribe();
 
-    return () => { socket.off('inventory_update'); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchProducts = async () => {
