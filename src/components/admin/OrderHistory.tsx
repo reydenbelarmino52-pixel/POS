@@ -226,7 +226,7 @@ export default function OrderHistory() {
                       </span>
                     </td>
                     <td className="px-10 py-5 text-right font-bold text-slate-900 tracking-tight font-mono text-base group-hover:text-pink-600 transition-colors">
-                      ${order.total.toFixed(2)}
+                      ${(Number(order.total) || 0).toFixed(2)}
                     </td>
                     <td className="px-10 py-5 text-right">
                       <button 
@@ -278,9 +278,9 @@ export default function OrderHistory() {
                     <div key={item.id} className="flex justify-between items-center bg-pink-50 p-3 rounded-xl">
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-900 uppercase">{item.name}</span>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{item.quantity} units x ${item.priceAtSale.toFixed(2)}</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{item.quantity} units x ${(Number(item.priceAtSale) || 0).toFixed(2)}</span>
                       </div>
-                      <span className="font-bold text-slate-900 font-mono tracking-tighter">${(item.priceAtSale * item.quantity).toFixed(2)}</span>
+                      <span className="font-bold text-slate-900 font-mono tracking-tighter">${((Number(item.priceAtSale) || 0) * (Number(item.quantity) || 0)).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -288,21 +288,21 @@ export default function OrderHistory() {
                 <div className="border-t-4 border-double border-pink-100 pt-8 space-y-3 mb-10">
                   <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     <span>Subtotal</span>
-                    <span className="font-mono text-slate-900">${(selectedOrder.total - selectedOrder.tax + (selectedOrder.discount || 0)).toFixed(2)}</span>
+                    <span className="font-mono text-slate-900">${((Number(selectedOrder.total) || 0) - (Number(selectedOrder.tax) || 0) + (Number(selectedOrder.discount) || 0)).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     <span>Tax (12%)</span>
-                    <span className="font-mono text-slate-900">${selectedOrder.tax.toFixed(2)}</span>
+                    <span className="font-mono text-slate-900">${(Number(selectedOrder.tax) || 0).toFixed(2)}</span>
                   </div>
                   {selectedOrder.discount > 0 && (
                     <div className="flex justify-between text-[10px] font-bold text-red-500 uppercase tracking-widest">
                         <span>Discount</span>
-                        <span className="font-mono">-${selectedOrder.discount.toFixed(2)}</span>
+                        <span className="font-mono">-${(Number(selectedOrder.discount) || 0).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between pt-5 border-t border-pink-100">
                     <span className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Total Amount</span>
-                    <span className="text-2xl font-bold text-pink-600 font-mono tracking-tighter">${selectedOrder.total.toFixed(2)}</span>
+                    <span className="text-2xl font-bold text-pink-600 font-mono tracking-tighter">${(Number(selectedOrder.total) || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -311,11 +311,11 @@ export default function OrderHistory() {
                   <div className="space-y-2 border-t border-pink-200 pt-4">
                      <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Paid</span>
-                        <span className="font-mono text-slate-900">${(selectedOrder.amountReceived || selectedOrder.total).toFixed(2)}</span>
+                        <span className="font-mono text-slate-900">${(Number(selectedOrder.amountReceived || selectedOrder.total) || 0).toFixed(2)}</span>
                      </div>
                      <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Change</span>
-                        <span className="font-mono text-slate-900">${(selectedOrder.changeAmount || 0).toFixed(2)}</span>
+                        <span className="font-mono text-slate-900">${(Number(selectedOrder.changeAmount) || 0).toFixed(2)}</span>
                      </div>
                   </div>
                 </div>

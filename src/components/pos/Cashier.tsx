@@ -238,7 +238,7 @@ export default function Cashier() {
                     <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest mb-4">{p.categoryName || 'Generic'}</p>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold text-slate-900 tracking-tight font-mono">${p.price.toFixed(2)}</span>
+                      <span className="text-lg font-bold text-slate-900 tracking-tight font-mono">${(Number(p.price) || 0).toFixed(2)}</span>
                       <span className={`text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border
                         ${p.stock > 5 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                         {p.stock}
@@ -305,7 +305,7 @@ export default function Cashier() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-900 truncate tracking-tight">{item.name}</p>
-                    <p className="text-[10px] text-slate-500 font-mono tracking-tighter mt-0.5">${item.price.toFixed(2)}</p>
+                    <p className="text-[10px] text-slate-500 font-mono tracking-tighter mt-0.5">${(Number(item.price) || 0).toFixed(2)}</p>
                   </div>
                   <div className="flex items-center bg-white/50 rounded-xl border border-pink-100 p-1">
                     <button onClick={() => updateQuantity(item.id, -1)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
@@ -322,16 +322,16 @@ export default function Cashier() {
           <div className="space-y-3 lg:space-y-4">
             <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
               <span>Subtotal</span>
-              <span className="text-slate-600 font-mono tracking-widest">${subtotal.toFixed(2)}</span>
+              <span className="text-slate-600 font-mono tracking-widest">${(Number(subtotal) || 0).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
               <span>Tax (12%)</span>
-              <span className="text-slate-600 font-mono tracking-widest">${tax.toFixed(2)}</span>
+              <span className="text-slate-600 font-mono tracking-widest">${(Number(tax) || 0).toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center pt-4 lg:pt-8 border-t border-pink-100">
               <span className="text-base lg:text-lg font-bold text-slate-900 tracking-tight uppercase">Total Amount</span>
               <div className="text-right">
-                <span className="text-3xl lg:text-4xl font-bold text-pink-600 tracking-widest font-mono">${total.toFixed(2)}</span>
+                <span className="text-3xl lg:text-4xl font-bold text-pink-600 tracking-widest font-mono">${(Number(total) || 0).toFixed(2)}</span>
                 <p className="text-[8px] lg:text-[9px] text-pink-500 font-bold uppercase tracking-widest mt-1">Order Summary</p>
               </div>
             </div>
@@ -377,7 +377,7 @@ export default function Cashier() {
              </div>
           </div>
           <div className="text-right">
-             <p className="text-xl font-bold font-mono tracking-tighter">${total.toFixed(2)}</p>
+             <p className="text-xl font-bold font-mono tracking-tighter">${(Number(total) || 0).toFixed(2)}</p>
              <p className="text-[8px] font-bold opacity-50 uppercase tracking-widest">Tap to Review</p>
           </div>
         </button>
@@ -413,7 +413,7 @@ export default function Cashier() {
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.4em] mb-2 lg:mb-3">Amount Due</p>
                   <p className="text-3xl lg:text-5xl font-bold text-white tracking-widest font-mono">
                     <span className="text-pink-400 text-2xl lg:text-3xl mr-1">$</span>
-                    {total.toFixed(2)}
+                    {(Number(total) || 0).toFixed(2)}
                   </p>
                 </div>
 
@@ -464,7 +464,7 @@ export default function Cashier() {
                     </div>
                     <div className="flex justify-between items-center px-2">
                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Change</span>
-                       <span className="text-xl font-bold text-pink-600 font-mono tracking-tighter">${changeAmount.toFixed(2)}</span>
+                       <span className="text-xl font-bold text-pink-600 font-mono tracking-tighter">${(Number(changeAmount) || 0).toFixed(2)}</span>
                     </div>
                   </div>
                 )}
@@ -540,9 +540,9 @@ export default function Cashier() {
                     <div key={item.id} className="flex justify-between items-center bg-pink-50 p-3 rounded-xl">
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-900 uppercase">{item.name}</span>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{item.quantity} units x ${item.price.toFixed(2)}</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{item.quantity} units x ${(Number(item.price) || 0).toFixed(2)}</span>
                       </div>
-                      <span className="font-bold text-slate-900 font-mono tracking-tighter">${(item.price * item.quantity).toFixed(2)}</span>
+                      <span className="font-bold text-slate-900 font-mono tracking-tighter">${((Number(item.price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -550,26 +550,26 @@ export default function Cashier() {
                 <div className="border-t-4 border-double border-pink-100 pt-6 lg:pt-8 space-y-2 lg:space-y-3 mb-6 lg:mb-10">
                   <div className="flex justify-between text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     <span>Subtotal</span>
-                    <span className="font-mono text-slate-900">${receipt.subtotal.toFixed(2)}</span>
+                    <span className="font-mono text-slate-900">${(Number(receipt.subtotal) || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     <span>Tax (12%)</span>
-                    <span className="font-mono text-slate-900">${receipt.tax.toFixed(2)}</span>
+                    <span className="font-mono text-slate-900">${(Number(receipt.tax) || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between pt-4 lg:pt-5 border-t border-pink-100">
                     <span className="text-xs lg:text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Total Amount</span>
-                    <span className="text-xl lg:text-2xl font-bold text-pink-600 font-mono tracking-tighter">${receipt.total.toFixed(2)}</span>
+                    <span className="text-xl lg:text-2xl font-bold text-pink-600 font-mono tracking-tighter">${(Number(receipt.total) || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
                 <div className="space-y-3 mb-10 p-5 bg-slate-900 rounded-2xl">
                    <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                       <span>Total Received</span>
-                      <span className="font-mono text-white">${receipt.amountReceived?.toFixed(2)}</span>
+                      <span className="font-mono text-white">${(Number(receipt.amountReceived) || 0).toFixed(2)}</span>
                    </div>
                    <div className="flex justify-between text-[10px] font-bold text-pink-500 uppercase tracking-widest pt-2 border-t border-white/10">
                       <span>Change</span>
-                      <span className="font-mono text-pink-400">${receipt.changeAmount?.toFixed(2)}</span>
+                      <span className="font-mono text-pink-400">${(Number(receipt.changeAmount) || 0).toFixed(2)}</span>
                    </div>
                 </div>
 

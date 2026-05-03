@@ -69,6 +69,7 @@ export default function Inventory() {
   const [productHistory, setProductHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -268,12 +269,17 @@ export default function Inventory() {
   };
 
   const deleteProduct = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
     try {
+      setLoading(true);
       await api.delete(`/products/${id}`);
+      setDeleteId(null);
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const msg = err.response?.data?.error || "Failed to delete product";
+      alert(msg);
+      setDeleteId(null);
+      setLoading(false);
     }
   };
 
@@ -426,10 +432,10 @@ export default function Inventory() {
                      </span>
                   </td>
                   <td className="px-10 py-5 text-right font-bold text-slate-900 tracking-tight font-mono text-base">
-                    ${p.price.toFixed(2)}
+                    ${(Number(p.price) || 0).toFixed(2)}
                   </td>
                   <td className="px-10 py-5 text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                    <div className="flex items-center justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300">
                       <button 
                         onClick={() => openHistory(p)} 
                         className="p-3 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"
@@ -443,12 +449,29 @@ export default function Inventory() {
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => deleteProduct(p.id)} 
-                        className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {deleteId === p.id ? (
+                        <div className="flex items-center bg-rose-50 rounded-xl overflow-hidden border border-rose-100 ml-2">
+                          <button 
+                            onClick={() => deleteProduct(p.id)}
+                            className="px-3 py-2 text-[8px] font-bold uppercase text-rose-600 hover:bg-rose-100 transition-all"
+                          >
+                            Confirm Delete
+                          </button>
+                          <button 
+                            onClick={() => setDeleteId(null)}
+                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white transition-all border-l border-rose-100"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setDeleteId(p.id)} 
+                          className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </motion.tr>

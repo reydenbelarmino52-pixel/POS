@@ -6,12 +6,38 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 
 export default function SelectStore() {
-  const { stores, setStore, logout, refreshStores } = useAuth();
+  const { user, stores, setStore, logout, refreshStores, isLoading } = useAuth();
   const navigate = useNavigate();
+  
+  if (isLoading) return null;
+  if (!user) return <Navigate to="/login" />;
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editPin, setEditPin] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinStoreName, setJoinStoreName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [joinError, setJoinError] = useState('');
+
+  const handleJoin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setJoinError('');
+    setLoading(true);
+    try {
+      await api.post('/auth/join-store', { storeName: joinStoreName, joinCode });
+      setShowJoinModal(false);
+      setJoinStoreName('');
+      setJoinCode('');
+      await refreshStores();
+      alert('Join request sent! Please wait for admin approval.');
+    } catch (err: any) {
+      setJoinError(err.response?.data?.error || 'Failed to join store');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEdit = (s: any) => {
     setEditingId(s.id);
@@ -154,6 +180,93 @@ export default function SelectStore() {
             <span className="font-semibold text-slate-400 group-hover:text-pink-500 uppercase tracking-widest text-[11px]">Add New Branch</span>
           </motion.button>
         </div>
+
+        <div className="mt-8">
+           <button 
+             onClick={() => setShowJoinModal(true)}
+             className="w-full flex items-center justify-center gap-3 p-8 bg-pink-50 border border-pink-100 rounded-3xl hover:bg-pink-100 transition-all group"
+           >
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-pink-500 shadow-sm transition-transform group-hover:scale-110">
+                <Store className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold text-slate-900 uppercase tracking-tight">Join an Existing Branch</p>
+                <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Enter branch name and join code</p>
+              </div>
+           </button>
+        </div>
+
+        <AnimatePresence>
+          {showJoinModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowJoinModal(false)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-md bg-white rounded-[2.5rem] p-10 shadow-2xl border border-pink-100"
+              >
+                <button 
+                  onClick={() => setShowJoinModal(false)}
+                  className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="mb-8">
+                  <h2 className="text-2xl font-bold text-slate-900 uppercase tracking-tight mb-2">Join Branch</h2>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Request access to an existing location</p>
+                </div>
+
+                <form onSubmit={handleJoin} className="space-y-6">
+                  {joinError && (
+                    <div className="p-4 bg-red-50 text-red-500 rounded-2xl text-[10px] font-bold uppercase tracking-widest border border-red-100 italic">
+                      {joinError}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Branch Name</label>
+                    <input 
+                      type="text"
+                      required
+                      placeholder="e.g. Cathtea SM Mall"
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold uppercase tracking-tight focus:ring-4 focus:ring-pink-500/10 outline-none transition-all"
+                      value={joinStoreName}
+                      onChange={(e) => setJoinStoreName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Join Code</label>
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Enter 4-digit code"
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-mono tracking-[0.4em] focus:ring-4 focus:ring-pink-500/10 outline-none transition-all"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value)}
+                    />
+                  </div>
+
+                  <button 
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-5 bg-pink-500 text-white rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-pink-500/20 hover:bg-pink-600 transition-all disabled:opacity-50 mt-4"
+                  >
+                    {loading ? 'Sending Request...' : 'Send Access Request'}
+                  </button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         <div className="mt-10 pt-10 border-t border-slate-100 text-center">
           <button 

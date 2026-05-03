@@ -16,6 +16,8 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [storeName, setStoreName] = useState('');
+  const [shiftCode, setShiftCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [captchaQuestion, setCaptchaQuestion] = useState('');
@@ -135,20 +137,22 @@ export default function Login() {
             </div>
 
             {!isLogin && (
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                  <input 
-                    type="email"
-                    required
-                    placeholder="your@email.com"
-                    className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-mono text-sm placeholder:text-slate-300 tracking-wider"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
+              <>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                    <input 
+                      type="email"
+                      required
+                      placeholder="your@email.com"
+                      className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-mono text-sm placeholder:text-slate-300 tracking-wider"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             <div className="space-y-3">

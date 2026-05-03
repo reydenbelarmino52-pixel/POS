@@ -53,7 +53,9 @@ export default function Shell({ children }: ShellProps) {
     { name: 'Inventory', path: '/inventory', icon: Package, roles: ['admin'] },
     { name: 'Order History', path: '/orders', icon: Receipt, roles: ['admin'] },
     { name: 'Analytics', path: '/reports', icon: BarChart3, roles: ['admin'] },
+    { name: 'Staff Management', path: '/staff', icon: Users, roles: ['admin'] },
     { name: 'Shift Management', path: '/shifts', icon: Clock, roles: ['admin', 'cashier'] },
+    { name: 'Switch Branch', path: '/select-store', icon: ShoppingBag, roles: ['admin', 'cashier'] },
   ];
 
   const filteredNav = navItems.filter(item => item.roles.includes(user?.role || ''));

@@ -10,6 +10,23 @@ import { supabase } from './supabase';
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
 const CAPTCHA_SECRET = process.env.CAPTCHA_SECRET || "captcha-secret-key";
 
+// Initialize database schema
+(async () => {
+  try {
+    await supabase.rpc('exec_sql', { sql: `
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='users' AND COLUMN_NAME='status') THEN
+          ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'pending';
+        END IF;
+      END $$;
+    `});
+    console.log("Database schema initialized successfully");
+  } catch (err) {
+    console.error("Failed to initialize database schema:", err);
+  }
+})();
+
 /*
   --- SUPABASE SQL SCHEMA ---
   Run this in your Supabase SQL Editor:
@@ -20,6 +37,7 @@ const CAPTCHA_SECRET = process.env.CAPTCHA_SECRET || "captcha-secret-key";
     email TEXT UNIQUE,
     password TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'cashier',
+    status TEXT NOT NULL DEFAULT 'pending', -- 'pending' or 'active'
     store_ids TEXT[] DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
   );
@@ -158,11 +176,16 @@ const checkStoreAccess = async (req: any, res: any, next: any) => {
   const storeId = req.headers['x-store-id'];
   if (!storeId) return res.status(400).json({ error: "Store ID is required in headers (x-store-id)" });
   
-  // To avoid stale JWT issues (e.g. after creating a store), we fetch the user's current store_ids from the DB
-  const { data: user, error } = await supabase.from('users').select('store_ids, role').eq('id', req.user.id).single();
+  // To avoid stale JWT issues (e.g. after creating a store), we fetch the user's current data from the DB
+  const { data: user, error } = await supabase.from('users').select('store_ids, role, status').eq('id', req.user.id).single();
   
   if (error || !user) {
     return res.status(401).json({ error: "User profile not found" });
+  }
+
+  // If cashier is pending, they cannot access any store dashboard
+  if (user.role === 'cashier' && user.status === 'pending') {
+    return res.status(403).json({ error: "Your account is pending approval from an admin." });
   }
 
   // Update req.user with fresh data for subsequent middlewares (like isAdmin)
@@ -233,7 +256,7 @@ router.post("/auth/signup",
       .from('users')
       .select('id')
       .or(`username.eq.${username},email.eq.${email}`)
-      .maybeSingle(); // maybeSingle returns null without error if no rows found
+      .maybeSingle();
     
     if (existingUser) return res.status(400).json({ error: "Username or email already exists" });
 
@@ -241,20 +264,69 @@ router.post("/auth/signup",
       username,
       email,
       password: bcrypt.hashSync(password, 10),
-      role: 'admin',
+      role: 'cashier',
+      status: 'pending', // Needs approval after joining a store
       store_ids: []
     }]).select().single();
 
     if (error) return res.status(400).json({ error: error.message });
 
-    const token = jwt.sign({ id: newUser.id, username: newUser.username, role: newUser.role, store_ids: newUser.store_ids }, JWT_SECRET);
+    const token = jwt.sign({ id: newUser.id, username: newUser.username, role: newUser.role, status: newUser.status, store_ids: newUser.store_ids }, JWT_SECRET);
     res.json({ 
       token, 
-      user: { id: newUser.id, username: newUser.username, role: newUser.role, store_ids: newUser.store_ids },
+      user: { id: newUser.id, username: newUser.username, role: newUser.role, status: newUser.status, store_ids: newUser.store_ids },
       stores: []
     });
   }
 );
+
+router.post("/auth/join-store",
+  authenticateToken,
+  [
+    body('storeName').isString().trim().notEmpty(),
+    body('joinCode').isString().notEmpty(),
+    validate
+  ],
+  async (req: any, res: any) => {
+    const { storeName, joinCode } = req.body;
+
+    const { data: store, error: storeError } = await supabase
+      .from('stores')
+      .select('id, shift_pin')
+      .eq('name', storeName)
+      .maybeSingle();
+
+    if (!store || storeError) {
+      return res.status(400).json({ error: "Store not found. Please verify the branch name." });
+    }
+
+    if (store.shift_pin !== joinCode) {
+      return res.status(401).json({ error: "Invalid join code for this branch" });
+    }
+
+    const { data: user } = await supabase.from('users').select('store_ids').eq('id', req.user.id).single();
+    const currentIds = user?.store_ids || [];
+    
+    if (currentIds.includes(store.id)) {
+      return res.status(400).json({ error: "You have already joined this branch" });
+    }
+
+    const { error } = await supabase.from('users').update({
+      store_ids: [...currentIds, store.id],
+      status: 'pending' // Re-set to pending for admin approval for this store
+    }).eq('id', req.user.id);
+
+    if (error) return res.status(400).json({ error: error.message });
+
+    res.json({ success: true, message: "Joined successfully! Waiting for admin approval." });
+  }
+);
+
+router.get("/auth/profile", authenticateToken, async (req: any, res: any) => {
+  const { data: user, error } = await supabase.from('users').select('id, username, role, status, store_ids').eq('id', req.user.id).single();
+  if (error || !user) return res.status(404).json({ error: "User not found" });
+  res.json(user);
+});
 
 router.post("/auth/login", 
   [
@@ -274,10 +346,10 @@ router.post("/auth/login",
 
     const { data: userStores } = await supabase.from('stores').select('*').in('id', user.store_ids || []);
 
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, store_ids: user.store_ids }, JWT_SECRET);
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, status: user.status, store_ids: user.store_ids }, JWT_SECRET);
     res.json({ 
       token, 
-      user: { id: user.id, username: user.username, role: user.role, store_ids: user.store_ids },
+      user: { id: user.id, username: user.username, role: user.role, status: user.status, store_ids: user.store_ids },
       stores: userStores || []
     });
   }
@@ -299,9 +371,13 @@ router.post("/stores", authenticateToken, [body('name').notEmpty(), validate], a
 
   if (storeError) return res.status(400).json({ error: storeError.message });
   
-  // Update user's store_ids
+  // Update user's store_ids and ensure they are an admin and active
   const newStoreIds = [...(req.user.store_ids || []), newStore.id];
-  await supabase.from('users').update({ store_ids: newStoreIds }).eq('id', req.user.id);
+  await supabase.from('users').update({ 
+    store_ids: newStoreIds,
+    role: 'admin',
+    status: 'active'
+  }).eq('id', req.user.id);
   
   res.json(newStore);
 });
@@ -406,11 +482,34 @@ router.put("/products/:id", authenticateToken, checkStoreAccess, isAdmin, async 
 });
 
 router.delete("/products/:id", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
-  const { data: used } = await supabase.from('sale_items').select('id').eq('product_id', req.params.id).limit(1);
-  if (used && used.length > 0) return res.status(400).json({ error: "Cannot delete product with sales history" });
+  try {
+    // Check if product is used in sales
+    const { data: used, error: usedError } = await supabase.from('sale_items').select('id').eq('product_id', req.params.id).limit(1);
+    
+    if (usedError) {
+      return res.status(400).json({ error: "Database error checking sales history: " + usedError.message });
+    }
+    
+    if (used && used.length > 0) {
+      return res.status(400).json({ error: "Cannot delete product with sales history. To remove from POS, set price to 0 or stock to 0 instead." });
+    }
 
-  await supabase.from('products').delete().eq('id', req.params.id).eq('store_id', req.storeId);
-  res.json({ success: true });
+    // Delete inventory logs first to avoid foreign key constraint errors
+    // Note: If schema used our database.sql, this is handled by CASCADE, but we do it manually for compatibility
+    await supabase.from('inventory_logs').delete().eq('product_id', req.params.id);
+    
+    const { error } = await supabase.from('products').delete().eq('id', req.params.id).eq('store_id', req.storeId);
+    
+    if (error) {
+      console.error("Supabase Delete Error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+    
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Server Delete Error:", err);
+    res.status(500).json({ error: "Internal server error during deletion" });
+  }
 });
 
 router.get("/categories", authenticateToken, checkStoreAccess, async (req: any, res) => {
@@ -572,6 +671,12 @@ router.get("/analytics/summary", authenticateToken, checkStoreAccess, isAdmin, a
   const { data: productsList } = await supabase.from('products').select('stock, low_stock_threshold').eq('store_id', req.storeId);
   const { data: usersCount } = await supabase.rpc('get_staff_count', { store_id_param: req.storeId });
 
+  // Get pending staff for this store
+  const { data: pendingStaff } = await supabase.from('users')
+    .select('id, username, status')
+    .contains('store_ids', [req.storeId])
+    .eq('status', 'pending');
+
   // Today stats
   const today = new Date().toISOString().split('T')[0];
   const todaySales = salesHistory?.filter(s => s.timestamp.startsWith(today)) || [];
@@ -587,9 +692,39 @@ router.get("/analytics/summary", authenticateToken, checkStoreAccess, isAdmin, a
       todayRevenue,
       totalProducts: productsList?.length || 0,
       lowStockCount: lowStock,
-      totalStaff: usersCount || 0
+      totalStaff: usersCount || 0,
+      pendingStaffCount: pendingStaff?.length || 0
     }
   });
+});
+
+router.get("/admin/staff", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res) => {
+  const { data } = await supabase.from('users')
+    .select('id, username, email, role, status, created_at')
+    .contains('store_ids', [req.storeId]);
+  res.json(data || []);
+});
+
+router.post("/admin/staff/:userId/approve", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  const { error } = await supabase.from('users')
+    .update({ status: 'active' })
+    .eq('id', req.params.userId)
+    .contains('store_ids', [req.storeId]);
+    
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ success: true });
+});
+
+router.post("/admin/staff/:userId/reject", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  // Instead of deleting, we could set status to 'rejected' or remove them from store
+  const { data: user } = await supabase.from('users').select('store_ids').eq('id', req.params.userId).single();
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const newStoreIds = user.store_ids.filter((id: string) => id !== req.storeId);
+  const { error } = await supabase.from('users').update({ store_ids: newStoreIds }).eq('id', req.params.userId);
+  
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ success: true });
 });
 
 app.use('/api', router);

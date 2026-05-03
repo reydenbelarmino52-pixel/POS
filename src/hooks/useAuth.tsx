@@ -6,6 +6,7 @@ interface User {
   id: string;
   username: string;
   role: 'admin' | 'cashier';
+  status: 'pending' | 'active';
 }
 
 interface Store {
@@ -92,11 +93,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshStores = async () => {
     try {
-      const res = await api.get('/stores');
-      setStores(res.data);
-      localStorage.setItem('pos_stores', JSON.stringify(res.data));
+      const [storesRes, profileRes] = await Promise.all([
+        api.get('/stores'),
+        api.get('/auth/profile')
+      ]);
+      setStores(storesRes.data);
+      setUser(profileRes.data);
+      localStorage.setItem('pos_stores', JSON.stringify(storesRes.data));
+      localStorage.setItem('pos_user', JSON.stringify(profileRes.data));
     } catch (e) {
-      console.error('Failed to refresh stores', e);
+      console.error('Failed to refresh data', e);
     }
   };
 
