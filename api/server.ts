@@ -250,11 +250,12 @@ router.get("/health", (req, res) => {
   res.json({ 
     status: "ok", 
     timestamp: new Date().toISOString(),
-    env: {
-      supabase: isSupabaseConfigured ? "configured" : "MISSING",
-      jwt: !!process.env.JWT_SECRET ? "configured" : "MISSING",
-      groq: !!process.env.GROQ_API_KEY ? "configured" : "not-set (optional)"
-    }
+    configuration: {
+      supabase: isSupabaseConfigured ? "Connected" : "Not Configured (Using Placeholder)",
+      jwt: !!process.env.JWT_SECRET ? "Set" : "Using Default",
+      groq: !!process.env.GROQ_API_KEY ? "Enabled" : "Disabled"
+    },
+    hint: !isSupabaseConfigured ? "To use real persistence on Netlify, add SUPABASE_URL and SUPABASE_ANON_KEY to your environment variables." : "Database linked successfully."
   });
 });
 
@@ -288,9 +289,6 @@ router.post("/auth/signup",
     validate
   ],
   async (req: any, res: any) => {
-    if (!isSupabaseConfigured) {
-      return res.status(503).json({ error: "Cloud database not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables." });
-    }
     const { username, email, password } = req.body;
     
     const { data: existingUser, error: checkError } = await supabase
@@ -383,9 +381,6 @@ router.post("/auth/login",
     validate
   ],
   async (req: any, res: any) => {
-    if (!isSupabaseConfigured) {
-      return res.status(503).json({ error: "Cloud database not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables." });
-    }
     const { username, password } = req.body;
     
     const { data: user, error } = await supabase.from('users').select('*').eq('username', username).single();
