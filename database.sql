@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   role TEXT DEFAULT 'cashier', -- 'admin' or 'cashier'
+  status TEXT DEFAULT 'pending', -- 'pending' or 'active'
   store_ids UUID[] DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -123,13 +124,37 @@ CREATE TABLE IF NOT EXISTS inventory_logs (
 );
 
 -- 12. RPC for Analytics
+DROP FUNCTION IF EXISTS get_sold_counts(UUID);
 CREATE OR REPLACE FUNCTION get_sold_counts(store_id_param UUID)
-RETURNS TABLE(product_id UUID, count BIGINT) AS $$
+RETURNS TABLE(product_id UUID, count BIGINT, revenue DECIMAL(10,2)) AS $$
 BEGIN
   RETURN QUERY
-  SELECT si.product_id, SUM(si.quantity)::BIGINT as count
+  SELECT si.product_id, SUM(si.quantity)::BIGINT as count, SUM(si.quantity * si.price_at_sale)::DECIMAL(10,2) as revenue
   FROM sale_items si
   WHERE si.store_id = store_id_param
   GROUP BY si.product_id;
 END;
 $$ LANGUAGE plpgsql;
+
+-- 13. RPC for Staff Count
+DROP FUNCTION IF EXISTS get_staff_count(UUID);
+CREATE OR REPLACE FUNCTION get_staff_count(store_id_param UUID)
+RETURNS BIGINT AS $$
+BEGIN
+  RETURN (
+    SELECT COUNT(*)::BIGINT
+    FROM users
+    WHERE store_id_param = ANY(store_ids)
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- 14. Performance Indexes
+CREATE INDEX IF NOT EXISTS idx_products_store ON products(store_id);
+CREATE INDEX IF NOT EXISTS idx_sales_store ON sales(store_id);
+CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_logs_product ON inventory_logs(product_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_logs_store ON inventory_logs(store_id);
+CREATE INDEX IF NOT EXISTS idx_shifts_store ON shifts(store_id);
+CREATE INDEX IF NOT EXISTS idx_categories_store ON categories(store_id);
+CREATE INDEX IF NOT EXISTS idx_suppliers_store ON suppliers(store_id);

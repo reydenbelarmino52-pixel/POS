@@ -338,7 +338,7 @@ export default function Cashier() {
                 >
                   <div className="w-14 h-14 bg-pink-50 rounded-2xl flex-shrink-0 relative overflow-hidden flex items-center justify-center border border-pink-100">
                     {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                      <img src={item.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <Package className="w-5 h-5 text-pink-200" />
                     )}
@@ -572,7 +572,7 @@ export default function Cashier() {
                   </div>
                   <h3 className="text-xl lg:text-2xl font-bold text-slate-900 uppercase tracking-tighter">Sale Successful</h3>
                   <p className="text-[9px] lg:text-[10px] text-pink-500 font-bold uppercase tracking-[0.2em] mt-1 lg:mt-2">Order ID: {receipt.id}</p>
-                  <p className="text-[8px] lg:text-[9px] text-slate-400 font-bold mt-1 lg:mt-2 uppercase tracking-widest">{new Date(receipt.timestamp).toLocaleString()}</p>
+                  <p className="text-[8px] lg:text-[9px] text-slate-400 font-bold mt-1 lg:mt-2 uppercase tracking-widest">{receipt.timestamp ? new Date(receipt.timestamp).toLocaleString() : 'N/A'}</p>
                 </div>
 
                 <div className="space-y-4 mb-10 max-h-[200px] overflow-auto scrollbar-hide">

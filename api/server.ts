@@ -429,6 +429,10 @@ router.get("/products", authenticateToken, checkStoreAccess, async (req: any, re
     ...p,
     categoryName: (p as any).categories?.name,
     supplierName: (p as any).suppliers?.name,
+    categoryId: p.category_id,
+    supplierId: p.supplier_id,
+    imageUrl: p.image_url,
+    lowStockThreshold: p.low_stock_threshold,
     soldCount: soldCounts?.find((s: any) => s.product_id === p.id)?.count || 0
   }));
   res.json(formatted || []);
@@ -483,6 +487,16 @@ router.put("/products/:id", authenticateToken, checkStoreAccess, isAdmin, async 
     const io = req.app.get('io');
     if (io) {
       io.emit('inventory_update', { id: req.params.id, stock: Number(stock) });
+    }
+
+    // Broadcast low stock alert if threshold reached
+    const wss = req.app.get('wss');
+    if (wss && Number(stock) <= (Number(lowStockThreshold) || 5)) {
+      wss.clients.forEach((client: any) => {
+        if (client.readyState === 1) { // 1 = OPEN
+          client.send(JSON.stringify({ name, stock: Number(stock) }));
+        }
+      });
     }
 
     await supabase.from('inventory_logs').insert([{
@@ -625,9 +639,8 @@ router.post("/shifts/open", authenticateToken, checkStoreAccess, async (req: any
     return res.status(500).json({ error: "Database error fetching store info" });
   }
 
-  // Allow bypass if shift_code is 'bypass'
-  if (req.body.shift_code !== 'bypass' && store?.shift_pin && store.shift_pin !== req.body.shift_code) {
-    return res.status(401).json({ error: "Invalid shift code" });
+  if (store?.shift_pin && store.shift_pin !== req.body.shift_code) {
+    return res.status(401).json({ error: "Invalid shift pin" });
   }
 
   const openingBalance = Number(req.body.opening_balance);
@@ -693,7 +706,7 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
   if (saleError) return res.status(400).json({ error: saleError.message });
 
   for (const item of items) {
-    const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
+    const { data: prod } = await supabase.from('products').select('name, stock, low_stock_threshold').eq('id', item.id).single();
     if (prod) {
       const oldStock = prod.stock;
       const newStock = oldStock - item.quantity;
@@ -703,6 +716,16 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
       const io = req.app.get('io');
       if (io) {
         io.emit('inventory_update', { id: item.id, stock: newStock });
+      }
+
+      // Broadcast low stock alert
+      const wss = req.app.get('wss');
+      if (wss && newStock <= (Number(prod.low_stock_threshold) || 5)) {
+        wss.clients.forEach((client: any) => {
+          if (client.readyState === 1) {
+            client.send(JSON.stringify({ name: prod.name, stock: newStock }));
+          }
+        });
       }
 
       await supabase.from('sale_items').insert([{
@@ -737,15 +760,26 @@ router.get("/sales/:id", authenticateToken, checkStoreAccess, async (req: any, r
   const { data: sale } = await supabase.from('sales').select('*, users(username)').eq('id', req.params.id).eq('store_id', req.storeId).single();
   if (!sale) return res.status(404).json({ error: "Sale not found" });
 
-  const { data: items } = await supabase.from('sale_items').select('*, products(name)').eq('sale_id', sale.id);
-  const formattedItems = items?.map(si => ({ ...si, name: (si as any).products?.name }));
+  const { data: items } = await supabase.from('sale_items').select('*, products(name, image_url)').eq('sale_id', sale.id);
+  const formattedItems = items?.map(si => ({ 
+    ...si, 
+    name: (si as any).products?.name,
+    imageUrl: (si as any).products?.image_url,
+    priceAtSale: si.price_at_sale 
+  }));
 
   res.json({ ...sale, cashierName: (sale as any).users?.username, items: formattedItems });
 });
 
 router.get("/products/:id/logs", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
   const { data } = await supabase.from('inventory_logs').select('*, users(username)').eq('product_id', req.params.id).eq('store_id', req.storeId).order('timestamp', { ascending: false });
-  const formatted = data?.map(l => ({ ...l, username: (l as any).users?.username || 'Unknown' }));
+  const formatted = data?.map(l => ({ 
+    ...l, 
+    username: (l as any).users?.username || 'Unknown',
+    oldStock: l.old_stock,
+    newStock: l.new_stock,
+    changeType: l.change_type
+  }));
   res.json(formatted || []);
 });
 
@@ -754,7 +788,10 @@ router.get("/inventory/logs", authenticateToken, checkStoreAccess, isAdmin, asyn
   const formatted = data?.map(l => ({
     ...l,
     productName: (l as any).products?.name,
-    username: (l as any).users?.username
+    username: (l as any).users?.username,
+    oldStock: l.old_stock,
+    newStock: l.new_stock,
+    changeType: l.change_type
   }));
   res.json(formatted || []);
 });
@@ -790,10 +827,38 @@ router.get("/analytics/summary", authenticateToken, checkStoreAccess, isAdmin, a
   const todayRevenue = todaySales.reduce((sum, s) => sum + Number(s.total), 0);
   const lowStock = productsList?.filter(p => p.stock <= p.low_stock_threshold).length || 0;
 
+  // Get best sellers with images
+  const { data: soldCounts } = await supabase.rpc('get_sold_counts', { store_id_param: req.storeId });
+  
+  // Fetch products involved in best sellers to get names and images
+  const productIds = soldCounts?.map((s: any) => s.product_id) || [];
+  const { data: productsData } = await supabase.from('products').select('id, name, image_url, category_id, categories(name)').in('id', productIds);
+  
+  const bestSellers = soldCounts?.map((s: any) => {
+    const p = productsData?.find(pd => pd.id === s.product_id);
+    return {
+      name: p?.name || 'Unknown',
+      imageUrl: p?.image_url || null,
+      totalSold: s.count,
+      totalRevenue: s.revenue,
+      categoryId: p?.category_id
+    };
+  }).sort((a: any, b: any) => b.totalSold - a.totalSold).slice(0, 10) || [];
+
+  // Calculate category distribution
+  const categoryMap: Record<string, number> = {};
+  bestSellers.forEach((s: any) => {
+    const p = productsData?.find(pd => pd.id === soldCounts?.find((sc: any) => sc.product_id === pd.id)?.product_id);
+    const catName = (p as any)?.categories?.name || 'Unassigned';
+    categoryMap[catName] = (categoryMap[catName] || 0) + (Number(s.totalRevenue) || 0);
+  });
+  
+  const categoriesData = Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
+
   res.json({
     daily: [], // Client can calculate or we do more complex RPCs
-    categories: [],
-    bestSellers: [],
+    categories: categoriesData,
+    bestSellers,
     general: {
       todaySalesCount: todaySales.length,
       todayRevenue,

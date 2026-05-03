@@ -275,7 +275,7 @@ export default function Login() {
           <div className="mt-14 text-center">
             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest">
               {isLogin ? (
-                <>Demo Credentials: <span className="text-slate-600">admin / admin123</span></>
+                <>Authorized Personnel Only</>
               ) : (
                 <>Join the Cathtea Network</>
               )}

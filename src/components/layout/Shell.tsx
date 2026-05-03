@@ -36,19 +36,42 @@ export default function Shell({ children }: ShellProps) {
   const [activeToast, setActiveToast] = useState<any | null>(null);
 
   React.useEffect(() => {
-    const handleLowStock = (data: any) => {
-      const newNotification = { id: Date.now(), message: `Low stock: ${data.name} (${data.stock} left)`, type: 'warning' };
-      setNotifications(prev => [newNotification, ...prev]);
-      setActiveToast(newNotification);
-      
-      setTimeout(() => {
-        setActiveToast((current: any) => current?.id === newNotification.id ? null : current);
-      }, 5000);
+    // Establish a WebSocket connection to the '/inventory/low-stock' endpoint
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/inventory/low-stock`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const newNotification = { 
+          id: Date.now(), 
+          message: `Low stock: ${data.name} (${data.stock} left)`, 
+          type: 'warning' 
+        };
+        setNotifications(prev => [newNotification, ...prev]);
+        setActiveToast(newNotification);
+        
+        // Auto-dismiss toast
+        setTimeout(() => {
+          setActiveToast((current: any) => current?.id === newNotification.id ? null : current);
+        }, 5000);
+      } catch (err) {
+        console.error('Failed to parse low stock alert', err);
+      }
     };
 
-    socket.on('low_stock_alert', handleLowStock);
-    return () => { 
-      socket.off('low_stock_alert', handleLowStock);
+    ws.onclose = () => {
+      console.log('Low stock WebSocket closed');
+    };
+
+    ws.onerror = (error) => {
+      console.error('Low stock WebSocket error:', error);
+    };
+
+    // Clean up connection on unmount
+    return () => {
+      ws.close();
     };
   }, []);
 

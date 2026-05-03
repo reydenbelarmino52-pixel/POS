@@ -3,6 +3,8 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { WebSocketServer } from "ws";
+import url from "url";
 import path from "path";
 import fs from "fs";
 import app from "./api/server";
@@ -10,7 +12,24 @@ import app from "./api/server";
 async function startServer() {
   const httpServer = createServer(app);
   const io = new Server(httpServer);
+  const wss = new WebSocketServer({ noServer: true });
   const PORT = 3000;
+
+  // Handle standard WebSocket upgrade for specific paths
+  httpServer.on('upgrade', (request, socket, head) => {
+    const { pathname } = url.parse(request.url || '');
+
+    if (pathname === '/inventory/low-stock') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
+  });
+
+  wss.on('connection', (ws) => {
+    console.log('Low stock WebSocket client connected');
+    ws.on('close', () => console.log('Low stock WebSocket client disconnected'));
+  });
 
   // Create uploads directory if it doesn't exist
   const uploadDir = path.join(process.cwd(), 'public', 'uploads');
@@ -23,12 +42,9 @@ async function startServer() {
     console.log('Client connected');
   });
 
-  // Attach io to app for use in routes if needed (though current routes don't use it directly)
-  // Actually, some routes in server.ts DID use io.emit. 
-  // I need to make sure api/index.ts can use io if available.
-  
-  // Inject io into app locals
+  // Inject servers into app locals for use in routes
   app.set('io', io);
+  app.set('wss', wss);
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });

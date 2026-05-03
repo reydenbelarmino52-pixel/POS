@@ -292,12 +292,12 @@ export default function Inventory() {
     setFormData({
       name: product.name,
       type: product.type || 'product',
-      price: product.price,
-      stock: product.stock,
+      price: Number(product.price) || 0,
+      stock: Number(product.stock) || 0,
       categoryId: product.categoryId || '',
       supplierId: product.supplierId || '',
       imageUrl: product.imageUrl || '',
-      lowStockThreshold: product.lowStockThreshold || 5
+      lowStockThreshold: Number(product.lowStockThreshold) || 5
     });
     setModalOpen(true);
   };
@@ -442,7 +442,7 @@ export default function Inventory() {
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-pink-50 rounded-2xl border border-pink-100 flex items-center justify-center shrink-0 relative overflow-hidden group-hover:scale-105 transition-all duration-500 shadow-sm">
                         {p.imageUrl ? (
-                          <img src={p.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                          <img src={p.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" referrerPolicy="no-referrer" />
                         ) : (
                           <Package className="w-5 h-5 text-pink-200 group-hover:text-pink-500 transition-colors" />
                         )}
@@ -577,8 +577,11 @@ export default function Inventory() {
                       required
                       type="number" step="0.01"
                       className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 font-medium ${formErrors.price ? 'border-red-500' : 'border-gray-100'}`}
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                      value={isNaN(formData.price) ? "" : formData.price}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setFormData({ ...formData, price: isNaN(val) ? 0 : val });
+                      }}
                     />
                     {formErrors.price && <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest px-1">{formErrors.price}</p>}
                   </div>
@@ -588,7 +591,7 @@ export default function Inventory() {
                       required
                       type="number"
                       className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 font-medium ${formErrors.stock ? 'border-red-500' : 'border-gray-100'}`}
-                      value={formData.stock}
+                      value={isNaN(formData.stock) ? "" : formData.stock}
                       onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
                     />
                     {formErrors.stock && <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest px-1">{formErrors.stock}</p>}
@@ -598,7 +601,7 @@ export default function Inventory() {
                     <input 
                       type="number"
                       className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 font-medium ${formErrors.lowStockThreshold ? 'border-red-500' : 'border-gray-100'}`}
-                      value={formData.lowStockThreshold}
+                      value={isNaN(formData.lowStockThreshold) ? "" : formData.lowStockThreshold}
                       onChange={(e) => setFormData({ ...formData, lowStockThreshold: parseInt(e.target.value) || 0 })}
                     />
                     {formErrors.lowStockThreshold && <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest px-1">{formErrors.lowStockThreshold}</p>}
@@ -918,7 +921,7 @@ export default function Inventory() {
                             <div className="flex items-center gap-2 mt-1">
                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{log.username}</p>
                                <div className="w-1 h-1 bg-slate-200 rounded-full"></div>
-                               <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">{new Date(log.timestamp).toLocaleString()}</p>
+                               <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}</p>
                             </div>
                           </div>
                         </div>
@@ -987,7 +990,7 @@ export default function Inventory() {
                                {log.changeType === 'sale' ? 'Item Sold' : log.changeType === 'creation' ? 'Product Created' : 'Stock Adjusted'}
                              </p>
                              <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest mt-0.5">
-                               {new Date(log.timestamp).toLocaleString()} • {log.username}
+                               {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'} • {log.username}
                              </p>
                            </div>
                         </div>

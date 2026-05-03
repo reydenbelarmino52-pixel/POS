@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, ArrowUpDown, Receipt, Calendar, User, DollarSign, Download, Eye, XCircle } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, Receipt, Calendar, User, DollarSign, Download, Eye, XCircle, Package } from 'lucide-react';
 import api from '../../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -303,13 +303,20 @@ export default function OrderHistory() {
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900 uppercase tracking-tighter">Sale Successful</h3>
                   <p className="text-[10px] text-pink-500 font-bold uppercase tracking-[0.2em] mt-2">Order ID: {selectedOrder.id}</p>
-                  <p className="text-[9px] text-slate-400 font-bold mt-2 uppercase tracking-widest">{new Date(selectedOrder.timestamp).toLocaleString()}</p>
+                  <p className="text-[9px] text-slate-400 font-bold mt-2 uppercase tracking-widest">{selectedOrder.timestamp ? new Date(selectedOrder.timestamp).toLocaleString() : 'N/A'}</p>
                 </div>
 
                 <div className="space-y-4 mb-10 max-h-[200px] overflow-auto scrollbar-hide">
                   {selectedOrder.items?.map((item: any) => (
-                    <div key={item.id} className="flex justify-between items-center bg-pink-50 p-3 rounded-xl">
-                      <div className="flex flex-col">
+                    <div key={item.id} className="flex justify-between items-center bg-pink-50 p-3 rounded-xl gap-3">
+                      <div className="w-10 h-10 bg-white rounded-lg flex-shrink-0 overflow-hidden border border-pink-100 flex items-center justify-center">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <Package className="w-4 h-4 text-pink-200" />
+                        )}
+                      </div>
+                      <div className="flex flex-col flex-1">
                         <span className="text-xs font-bold text-slate-900 uppercase">{item.name}</span>
                         <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{item.quantity} units x ${(Number(item.priceAtSale) || 0).toFixed(2)}</span>
                       </div>

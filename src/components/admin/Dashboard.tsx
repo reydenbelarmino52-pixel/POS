@@ -17,7 +17,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="backdrop-blur-xl bg-white/95 border border-pink-100 p-5 rounded-2xl shadow-2xl min-w-[200px] shadow-pink-100">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-black/5 pb-2">
-          {isDate ? new Date(label).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : label}
+          {isDate && label ? new Date(label).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : label}
         </p>
         <div className="space-y-3">
           {payload.map((entry: any, index: number) => (
@@ -25,15 +25,15 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color || entry.fill }}></div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  {entry.name}
+                  {entry?.name || 'Item'}
                 </span>
               </div>
               <span className="text-sm font-bold text-slate-900 font-mono">
-                {typeof entry.value === 'number' ? 
-                  (entry.name.toLowerCase().includes('revenue') || entry.name.toLowerCase().includes('value') ? 
+                {typeof entry?.value === 'number' ? 
+                  (entry?.name?.toLowerCase().includes('revenue') || entry?.name?.toLowerCase().includes('value') ? 
                     `$${entry.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 
                     entry.value.toLocaleString()) : 
-                  entry.value}
+                  entry?.value || '-'}
               </span>
             </div>
           ))}
@@ -221,7 +221,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Daily Revenue" 
-          value={`$${todayRevenue.toLocaleString()}`} 
+          value={`$${(todayRevenue || 0).toLocaleString()}`} 
           trend={todayRevenue > 0 ? "+Active" : "Neutral"} 
           positive={todayRevenue > 0} 
           icon={DollarSign}
@@ -229,7 +229,7 @@ export default function Dashboard() {
         />
         <StatCard 
           title="Orders Today" 
-          value={todaySales.toString()} 
+          value={(todaySales || 0).toString()} 
           trend={todaySales > 0 ? "Active" : "Idle"} 
           positive={todaySales > 0} 
           icon={ShoppingCart}
@@ -237,7 +237,7 @@ export default function Dashboard() {
         />
         <StatCard 
           title="Stock Alerts" 
-          value={totalProducts.toString()} 
+          value={(totalProducts || 0).toString()} 
           trend={lowStock > 0 ? `${lowStock} Low` : "Safe"} 
           positive={lowStock === 0} 
           icon={Package}
@@ -245,7 +245,7 @@ export default function Dashboard() {
         />
         <StatCard 
           title="Team Members" 
-          value={summary?.general?.total_staff?.toString() || "0"} 
+          value={summary?.general?.totalStaff?.toString() || "0"} 
           trend="Active" 
           positive 
           icon={Users}
@@ -382,8 +382,14 @@ export default function Dashboard() {
                 summary.bestSellers.map((item: any, i: number) => (
                   <div key={i} className="flex items-center justify-between p-5 bg-white border border-pink-50 rounded-[1.5rem] group hover:bg-pink-50 hover:border-pink-200 transition-all duration-300">
                     <div className="flex items-center gap-5">
-                      <div className="w-12 h-12 bg-pink-500/10 text-pink-500 rounded-2xl flex items-center justify-center font-bold text-sm border border-pink-500/20 shadow-lg shadow-pink-500/10 transition-transform group-hover:scale-110">
-                        {i+1}
+                      <div className="w-12 h-12 bg-white rounded-2xl border border-pink-100 flex items-center justify-center shrink-0 overflow-hidden relative group-hover:scale-105 transition-all duration-500 shadow-sm">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="w-full h-full bg-pink-500/10 text-pink-500 flex items-center justify-center font-bold text-sm">
+                            {i+1}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <p className="text-base font-bold text-slate-900 tracking-tight">{item.name}</p>
@@ -391,7 +397,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-slate-900 tracking-widest font-mono">${item.totalRevenue.toLocaleString()}</p>
+                      <p className="text-lg font-bold text-slate-900 tracking-widest font-mono">${(item.totalRevenue || 0).toLocaleString()}</p>
                       <div className="flex items-center gap-1 justify-end text-[9px] text-pink-500 font-bold uppercase tracking-widest mt-1">
                         <TrendingUp className="w-3 h-3" />
                         Peak Performance
