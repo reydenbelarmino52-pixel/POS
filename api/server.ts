@@ -237,7 +237,7 @@ router.get("/health", (req, res) => {
       jwt: !!process.env.JWT_SECRET ? "Set" : "Using Default",
       groq: !!process.env.GROQ_API_KEY ? "Enabled" : "Disabled"
     },
-    hint: !isSupabaseConfigured ? "To use real persistence on Netlify, add SUPABASE_URL and SUPABASE_ANON_KEY to your environment variables." : "Database linked successfully."
+    hint: !isSupabaseConfigured ? "To use real persistence, add SUPABASE_URL and SUPABASE_ANON_KEY to your environment variables." : "Database linked successfully."
   });
 });
 
