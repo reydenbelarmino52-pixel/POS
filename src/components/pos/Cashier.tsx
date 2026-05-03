@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Minus, Trash2, CreditCard, Banknote, User, Receipt, XCircle, ShoppingCart, Package, ArrowRight } from 'lucide-react';
 import { usePOS, Product } from '../../hooks/usePOS';
 import api from '../../lib/api';
@@ -6,6 +7,7 @@ import socket from '../../lib/socket';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Cashier() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -66,8 +68,33 @@ export default function Cashier() {
   };
 
   const fetchCurrentShift = async () => {
-    const res = await api.get('/shifts/current');
-    setCurrentShift(res.data);
+    try {
+      const res = await api.get('/shifts/current');
+      if (res.data) {
+        setCurrentShift(res.data);
+      } else {
+        // Automatically open a shift with 0 balance for quick entry
+        try {
+          const openRes = await api.post('/shifts/open', { 
+            opening_balance: 0, 
+            shift_code: 'bypass' 
+          });
+          setCurrentShift({ id: openRes.data.id, status: 'open', opening_balance: 0 });
+        } catch (openErr: any) {
+          const errorMsg = openErr.response?.data?.error || openErr.message;
+          console.error('Failed to auto-open shift', errorMsg);
+          // Only alert if it's not a "Shift already active" error which we can recover from
+          if (openErr.response?.status !== 400) {
+             alert(`Auto-opening shift failed: ${errorMsg}`);
+          } else {
+             // If it's 400, maybe it's already active, try fetching again
+             fetchCurrentShift();
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch shift status', err);
+    }
   };
 
   const filteredProducts = useMemo(() => {
@@ -83,8 +110,18 @@ export default function Cashier() {
   }, [products, search, selectedCategory]);
 
   const [receipt, setReceipt] = useState<any>(null);
+  const [orderStartTime, setOrderStartTime] = useState<string | null>(null);
 
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+
+  // Set order start time when first item is added
+  useEffect(() => {
+    if (cart.length > 0 && !orderStartTime) {
+      setOrderStartTime(new Date().toISOString());
+    } else if (cart.length === 0 && orderStartTime) {
+      setOrderStartTime(null);
+    }
+  }, [cart.length, orderStartTime]);
 
   const handleCheckout = async () => {
     if (!currentShift) {
@@ -105,7 +142,8 @@ export default function Cashier() {
         payment_method: paymentMethod,
         shift_id: currentShift.id,
         amount_received: paymentMethod === 'cash' ? parseFloat(amountReceived) || total : total,
-        change_amount: paymentMethod === 'cash' ? changeAmount : 0
+        change_amount: paymentMethod === 'cash' ? changeAmount : 0,
+        started_at: orderStartTime
       });
       
       setReceipt({
@@ -118,12 +156,14 @@ export default function Cashier() {
         paymentMethod,
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountReceived) || total : total,
         changeAmount: paymentMethod === 'cash' ? changeAmount : 0,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        started_at: orderStartTime
       });
       
       clearCart();
       setAmountReceived('');
       setPaymentModal(false);
+      setOrderStartTime(null);
     } catch (err) {
       console.error(err);
       alert("Checkout failed.");
@@ -143,7 +183,7 @@ export default function Cashier() {
               <h2 className="text-xl font-bold text-gray-800">Shift Required</h2>
               <p className="text-gray-500 mb-6">Please open a shift in Shift Management before accessing the POS.</p>
               <button 
-                onClick={() => window.location.href = '/shifts'} 
+                onClick={() => navigate('/shifts')} 
                 className="px-6 py-2 bg-black text-white rounded-lg font-medium"
               >
                 Go to Shift Management

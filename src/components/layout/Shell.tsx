@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   ShoppingCart, 
@@ -15,7 +15,8 @@ import {
   Sparkles,
   Receipt,
   Store,
-  RefreshCw
+  RefreshCw,
+  ShoppingBag
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -26,33 +27,38 @@ interface ShellProps {
 }
 
 export default function Shell({ children }: ShellProps) {
-  const { user, logout, currentStore, stores } = useAuth();
+  const { user, logout, currentStore } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [activeToast, setActiveToast] = useState<any | null>(null);
 
   React.useEffect(() => {
-    socket.on('low_stock_alert', (data) => {
+    const handleLowStock = (data: any) => {
       const newNotification = { id: Date.now(), message: `Low stock: ${data.name} (${data.stock} left)`, type: 'warning' };
       setNotifications(prev => [newNotification, ...prev]);
       setActiveToast(newNotification);
       
-      // Auto-hide toast after 5 seconds
       setTimeout(() => {
         setActiveToast((current: any) => current?.id === newNotification.id ? null : current);
       }, 5000);
-    });
-    return () => { socket.off('low_stock_alert'); };
+    };
+
+    socket.on('low_stock_alert', handleLowStock);
+    return () => { 
+      socket.off('low_stock_alert', handleLowStock);
+    };
   }, []);
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['admin'] },
-    { name: 'POS Terminal', path: '/pos', icon: ShoppingCart, roles: ['admin', 'cashier'] },
+    { name: 'POS', path: '/pos', icon: ShoppingCart, roles: ['admin', 'cashier'] },
     { name: 'Inventory', path: '/inventory', icon: Package, roles: ['admin'] },
     { name: 'Order History', path: '/orders', icon: Receipt, roles: ['admin'] },
     { name: 'Analytics', path: '/reports', icon: BarChart3, roles: ['admin'] },
+    { name: 'AI Assistant', path: '/ai-assistant', icon: Sparkles, roles: ['admin'] },
     { name: 'Staff Management', path: '/staff', icon: Users, roles: ['admin'] },
     { name: 'Shift Management', path: '/shifts', icon: Clock, roles: ['admin', 'cashier'] },
     { name: 'Switch Branch', path: '/select-store', icon: ShoppingBag, roles: ['admin', 'cashier'] },
@@ -140,7 +146,7 @@ export default function Shell({ children }: ShellProps) {
             >
               <item.icon className={`w-4 h-4 transition-transform group-hover:scale-110`} />
               <span className="uppercase tracking-widest">{item.name}</span>
-              {window.location.pathname === item.path && (
+              {location.pathname === item.path && (
                 <motion.div layoutId="nav-pill" className="absolute right-4 w-1.5 h-1.5 bg-pink-500 rounded-full" />
               )}
             </NavLink>
@@ -182,7 +188,7 @@ export default function Shell({ children }: ShellProps) {
             </button>
             <div>
               <h2 className="text-3xl font-display font-bold text-slate-900 tracking-tighter uppercase">
-                {navItems.find(n => n.path === window.location.pathname)?.name || 'Terminal'}
+                {navItems.find(n => n.path === location.pathname)?.name || (location.pathname === '/' ? 'Dashboard' : 'POS')}
               </h2>
               <div className="flex items-center gap-2 mt-1">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
@@ -230,7 +236,7 @@ export default function Shell({ children }: ShellProps) {
         <div className="flex-1 overflow-auto p-8 pt-4 print:p-0 print:overflow-visible">
           <AnimatePresence mode="wait">
             <motion.div
-              key={window.location.pathname}
+              key={location.pathname}
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.02 }}

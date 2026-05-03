@@ -36,24 +36,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('pos_user');
-    const savedStores = localStorage.getItem('pos_stores');
-    const savedCurrentStore = localStorage.getItem('pos_current_store');
+    const initialize = async () => {
+      const savedUser = localStorage.getItem('pos_user');
+      const savedStores = localStorage.getItem('pos_stores');
+      const savedCurrentStore = localStorage.getItem('pos_current_store');
+      const savedToken = localStorage.getItem('pos_token');
 
-    if (savedUser && savedUser !== 'undefined') {
-      try {
-        setUser(JSON.parse(savedUser));
-        if (savedStores) setStores(JSON.parse(savedStores));
-        if (savedCurrentStore) setCurrentStore(JSON.parse(savedCurrentStore));
-      } catch (e) {
-        console.error('Failed to parse saved auth data', e);
-        localStorage.clear();
+      if (savedToken && savedUser && savedUser !== 'undefined') {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+          if (savedStores) setStores(JSON.parse(savedStores));
+          if (savedCurrentStore) setCurrentStore(JSON.parse(savedCurrentStore));
+
+          // Verify with server and update info
+          const [storesRes, profileRes] = await Promise.all([
+            api.get('/stores'),
+            api.get('/auth/profile')
+          ]);
+          
+          const freshUser = profileRes.data;
+          const freshStores = storesRes.data;
+          
+          setUser(freshUser);
+          setStores(freshStores);
+          localStorage.setItem('pos_user', JSON.stringify(freshUser));
+          localStorage.setItem('pos_stores', JSON.stringify(freshStores));
+
+          // Auto-selection logic if none saved
+          if (!savedCurrentStore && freshStores.length > 0) {
+            if (freshUser.role === 'cashier' || freshStores.length === 1) {
+              const preferred = freshStores[0];
+              setCurrentStore(preferred);
+              localStorage.setItem('pos_current_store', JSON.stringify(preferred));
+              localStorage.setItem('pos_store_id', preferred.id);
+            }
+          }
+        } catch (e) {
+          console.error('Auth sync failed', e);
+          // Don't logout immediately on transient network error, 
+          // but if it's 401 we should.
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initialize();
   }, []);
 
-  const login = (token: string, user: User, userStores: Store[]) => {
+  const login = React.useCallback((token: string, user: User, userStores: Store[]) => {
     localStorage.setItem('pos_token', token);
     localStorage.setItem('pos_user', JSON.stringify(user));
     localStorage.setItem('pos_stores', JSON.stringify(userStores));
@@ -61,25 +92,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(user);
     setStores(userStores);
     
-    if (userStores.length === 1) {
-      setStore(userStores[0]);
+    if (user.role === 'cashier' && userStores.length > 0) {
+      const preferred = userStores[0];
+      localStorage.setItem('pos_current_store', JSON.stringify(preferred));
+      localStorage.setItem('pos_store_id', preferred.id);
+      setCurrentStore(preferred);
+      navigate('/pos'); // Lead cashiers directly to POS
+    } else if (userStores.length === 1) {
+      const preferred = userStores[0];
+      localStorage.setItem('pos_current_store', JSON.stringify(preferred));
+      localStorage.setItem('pos_store_id', preferred.id);
+      setCurrentStore(preferred);
       navigate('/');
     } else if (userStores.length > 1) {
       navigate('/select-store');
     } else {
-      // No stores, maybe admin needs to create one
-      navigate('/create-store');
+      if (user.role === 'admin') {
+        navigate('/create-store');
+      } else {
+        navigate('/');
+      }
     }
-  };
+  }, [navigate]);
 
-  const setStore = (store: Store) => {
+  const setStore = React.useCallback((store: Store) => {
     localStorage.setItem('pos_current_store', JSON.stringify(store));
     localStorage.setItem('pos_store_id', store.id);
     setCurrentStore(store);
     navigate('/');
-  };
+  }, [navigate]);
 
-  const logout = () => {
+  const logout = React.useCallback(() => {
     localStorage.removeItem('pos_token');
     localStorage.removeItem('pos_user');
     localStorage.removeItem('pos_stores');
@@ -89,9 +132,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStores([]);
     setCurrentStore(null);
     navigate('/login');
-  };
+  }, [navigate]);
 
-  const refreshStores = async () => {
+  const refreshStores = React.useCallback(async () => {
     try {
       const [storesRes, profileRes] = await Promise.all([
         api.get('/stores'),
@@ -101,13 +144,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(profileRes.data);
       localStorage.setItem('pos_stores', JSON.stringify(storesRes.data));
       localStorage.setItem('pos_user', JSON.stringify(profileRes.data));
+
+      if (!currentStore && storesRes.data.length > 0 && (profileRes.data.role === 'cashier' || storesRes.data.length === 1)) {
+        setStore(storesRes.data[0]);
+      }
     } catch (e) {
       console.error('Failed to refresh data', e);
     }
-  };
+  }, [currentStore, setStore]);
+
+  const value = React.useMemo(() => ({ 
+    user, stores, currentStore, login, logout, setStore, isLoading, refreshStores 
+  }), [user, stores, currentStore, isLoading, login, logout, setStore, refreshStores]);
 
   return (
-    <AuthContext.Provider value={{ user, stores, currentStore, login, logout, setStore, isLoading, refreshStores }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

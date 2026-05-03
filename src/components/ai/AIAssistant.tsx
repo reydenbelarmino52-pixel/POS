@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import React, { useState } from 'react';
 import api from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
 import { Sparkles, Brain, ArrowRight, Lightbulb, TrendingUp, AlertTriangle } from 'lucide-react';
@@ -9,58 +8,24 @@ import Markdown from 'react-markdown';
 export default function AIAssistant() {
   const [insight, setInsight] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<any>(null);
   const { currentStore } = useAuth();
 
-  useEffect(() => {
-    fetchData();
-  }, [currentStore]);
-
-  const fetchData = async () => {
-    try {
-      const [products, analytics] = await Promise.all([
-        api.get('/products'),
-        api.get('/analytics/summary')
-      ]);
-      setData({ products: products.data, analytics: analytics.data });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const generateInsight = async () => {
-    if (!data || !currentStore) return;
+    if (!currentStore) return;
     setLoading(true);
+    setInsight(null);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
-      const prompt = `
-        You are an expert retail business analyst for Cathtea, specifically for the branch: "${currentStore.name}".
-        Analyze the following business data and provide 3-4 professional, actionable insights suited for a specialty tea and snack business.
-        Focus on:
-        1. Low stock items that need reordering.
-        2. Best selling products and how to capitalize on them.
-        3. Revenue trends and patterns.
-        4. Suggestions for promotions or category improvements.
+      // 1. Fetch data from backend
+      const dataRes = await api.get('/ai/data');
+      const businessData = dataRes.data;
 
-        Data:
-        - Products: ${JSON.stringify(data.products.map((p: any) => ({ name: p.name, stock: p.stock, threshold: p.lowStockThreshold })))}
-        - Best Sellers: ${JSON.stringify(data.analytics.bestSellers)}
-        - Recent Daily Revenue: ${JSON.stringify(data.analytics.daily.slice(0, 7))}
-
-        Format your response as a professional report with bullet points and clear headings.
-        Be concise but insightful.
-      `;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: prompt
-      });
-
-      setInsight(response.text || "Unable to generate insights at this moment.");
-    } catch (err) {
+      // 2. Request report from backend using Groq
+      const reportRes = await api.post('/ai/report', { businessData });
+      setInsight(reportRes.data.insight || "Unable to generate insights at this moment.");
+    } catch (err: any) {
       console.error(err);
-      setInsight("Error connecting to AI. Please check your API key configuration.");
+      const errorMsg = err.response?.data?.error || err.message || "Error connecting to AI Assistant. Please ensure the Groq API key is valid in the server settings.";
+      setInsight(`### Error\n${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -84,7 +49,7 @@ export default function AIAssistant() {
           
           <button 
             onClick={generateInsight}
-            disabled={loading || !data}
+            disabled={loading}
             className="px-8 py-5 bg-pink-600 text-white rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-pink-500 transition-all shadow-xl active:translate-y-0.5 outline-none shadow-pink-200"
           >
             {loading ? 'Analyzing Data...' : 'Generate AI Report'}

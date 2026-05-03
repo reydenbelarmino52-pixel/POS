@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar, Legend, Brush
 } from 'recharts';
-import { TrendingUp, DollarSign, Package, ShoppingCart, Users, ArrowUpRight, ArrowDownRight, Activity, ZoomIn } from 'lucide-react';
+import { TrendingUp, DollarSign, Package, ShoppingCart, Users, Activity, Clock, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useAuth } from '../../hooks/useAuth';
 
 const COLORS = ['#db2777', '#f43f5e', '#d946ef', '#fb7185', '#be185d', '#ec4899'];
 
@@ -43,12 +45,25 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
+  const { user, currentStore } = useAuth();
+  const navigate = useNavigate();
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [currentShift, setCurrentShift] = useState<any>(null);
+
+  const [currentTime, setCurrentTime] = useState('');
 
   useEffect(() => {
-    fetchSummary();
-  }, []);
+    setCurrentTime(new Date().toLocaleTimeString());
+    if (user?.role === 'admin') {
+      fetchSummary();
+    } else {
+      if (currentStore) {
+        fetchCurrentShift();
+      }
+      setLoading(false);
+    }
+  }, [user, currentStore]);
 
   const fetchSummary = async () => {
     try {
@@ -61,6 +76,15 @@ export default function Dashboard() {
     }
   };
 
+  const fetchCurrentShift = async () => {
+    try {
+      const res = await api.get('/shifts/current');
+      setCurrentShift(res.data);
+    } catch (err) {
+      console.error('Failed to fetch shift', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-6">
@@ -69,6 +93,104 @@ export default function Dashboard() {
           <div className="absolute inset-0 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.4em] animate-pulse">Initializing Dashboard...</p>
+      </div>
+    );
+  }
+
+  if (user?.role === 'cashier') {
+    if (!currentStore) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-8 p-12 backdrop-blur-2xl bg-white/50 border border-pink-100 rounded-[3rem] text-center">
+          <div className="w-20 h-20 bg-pink-50 rounded-[2rem] flex items-center justify-center text-pink-300">
+            <Activity className="w-10 h-10" />
+          </div>
+          <div>
+            <h2 className="text-4xl font-display font-bold text-slate-900 tracking-tight uppercase mb-4">No Store Assigned</h2>
+            <p className="text-slate-500 max-w-md mx-auto text-sm font-medium leading-relaxed">
+              Your account is currently active, but you haven't been assigned to a specific store location yet. Please contact your administrator.
+            </p>
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl"
+          >
+            Check Status
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-12 pb-12 mt-4">
+        {/* Cashier Welcome Header */}
+        <div className="flex flex-col gap-2">
+          <p className="text-pink-500 font-bold uppercase tracking-[0.3em] text-[10px]">Welcome Back, {user.username}</p>
+          <h2 className="text-6xl font-display font-bold text-slate-900 tracking-tighter uppercase">POS Access</h2>
+          <div className="flex items-center gap-3 mt-2">
+            <div className={`w-2 h-2 rounded-full animate-pulse shadow-sm ${currentShift ? 'bg-emerald-500 shadow-emerald-200' : 'bg-slate-300 shadow-slate-100'}`}></div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              Shift Status: {currentShift ? 'Active & Receiving' : 'Closed / Pending'}
+            </span>
+          </div>
+        </div>
+
+        {/* Quick Actions Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl">
+          {/* Start/Manage Shift Card */}
+          <motion.div 
+            whileHover={{ scale: 1.02, translateY: -5 }}
+            onClick={() => navigate('/shifts')}
+            className="group cursor-pointer backdrop-blur-2xl bg-white border border-pink-100 p-10 rounded-[3rem] shadow-2xl shadow-pink-100/50 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-48 h-48 bg-pink-100/30 blur-[80px] group-hover:bg-pink-200/40 transition-colors"></div>
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="w-16 h-16 bg-pink-50 rounded-2xl border border-pink-100 flex items-center justify-center text-pink-500 mb-8 group-hover:scale-110 transition-transform">
+                <Clock className="w-8 h-8" />
+              </div>
+              <h3 className="text-3xl font-display font-bold text-slate-900 mb-3 uppercase tracking-tight">Shift Management</h3>
+              <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed max-w-[280px]">
+                {currentShift 
+                  ? 'Your current shift is operational. Manage closing activities or balance updates here.' 
+                  : 'Start your operational shift by entering the store code and opening amount.'}
+              </p>
+              <div className="mt-auto flex items-center gap-3 text-pink-600 font-bold uppercase tracking-widest text-xs">
+                <span>{currentShift ? 'Manage Shift' : 'Start Shift'}</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* POS Card */}
+          <motion.div 
+            whileHover={{ scale: 1.02, translateY: -5 }}
+            onClick={() => navigate('/pos')}
+            className="group cursor-pointer backdrop-blur-2xl bg-slate-900 border border-slate-800 p-10 rounded-[3rem] shadow-2xl shadow-slate-200 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-48 h-48 bg-pink-500/10 blur-[80px] group-hover:bg-pink-500/20 transition-colors"></div>
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="w-16 h-16 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center text-pink-500 mb-8 group-hover:scale-110 transition-transform">
+                <ShoppingCart className="w-8 h-8" />
+              </div>
+              <h3 className="text-3xl font-display font-bold text-white mb-3 uppercase tracking-tight">POS Access</h3>
+              <p className="text-slate-400 text-sm font-medium mb-8 leading-relaxed max-w-[280px]">
+                Enter the operational POS interface to process customer orders and generate receipts.
+              </p>
+              <div className="mt-auto flex items-center gap-3 text-white font-bold uppercase tracking-widest text-xs">
+                <span>Enter POS</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform text-pink-500" />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Support Info */}
+        <div className="flex items-center gap-4 py-6 border-t border-pink-100 max-w-5xl">
+          <div className="w-10 h-10 bg-white rounded-xl border border-pink-50 flex items-center justify-center text-pink-300">
+             <Activity className="w-5 h-5" />
+          </div>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+            Logged into <span className="text-pink-600">{currentStore?.name}</span> • System Version 2.0.4 • Secured Access
+          </p>
+        </div>
       </div>
     );
   }
@@ -86,7 +208,7 @@ export default function Dashboard() {
           <h2 className="text-5xl font-display font-bold text-slate-900 tracking-tighter uppercase">Business Overview</h2>
           <div className="flex items-center gap-2 mt-4">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">System Ready • Latest Update {new Date().toLocaleTimeString()}</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">System Ready • Latest Update {currentTime || '...'}</span>
           </div>
         </div>
         <div className="px-6 py-4 bg-white border border-pink-100 rounded-2xl flex items-center gap-3 shadow-sm group hover:border-pink-500 transition-all">

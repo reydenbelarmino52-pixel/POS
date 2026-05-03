@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Store, Plus, ArrowRight, ShoppingBag, Edit2, Trash2, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import api from '../lib/api';
 
 export default function SelectStore() {
@@ -10,7 +10,7 @@ export default function SelectStore() {
   const navigate = useNavigate();
   
   if (isLoading) return null;
-  if (!user) return <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" replace />;
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -31,7 +31,7 @@ export default function SelectStore() {
       setJoinStoreName('');
       setJoinCode('');
       await refreshStores();
-      alert('Join request sent! Please wait for admin approval.');
+      alert('Joined successfully!');
     } catch (err: any) {
       setJoinError(err.response?.data?.error || 'Failed to join store');
     } finally {
@@ -133,11 +133,11 @@ export default function SelectStore() {
                     </div>
                   </div>
                 ) : (
-                  <motion.button
+                  <motion.div
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setStore(s)}
-                    className="w-full flex items-center justify-between p-6 bg-slate-50 border border-slate-100 rounded-3xl hover:bg-white hover:border-pink-300 hover:shadow-xl hover:shadow-pink-500/10 transition-all text-left"
+                    className="w-full flex items-center justify-between p-6 bg-slate-50 border border-slate-100 rounded-3xl hover:bg-white hover:border-pink-300 hover:shadow-xl hover:shadow-pink-500/10 transition-all text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center group-hover:border-pink-200 group-hover:bg-pink-50 transition-colors">
@@ -152,19 +152,19 @@ export default function SelectStore() {
                     <div className="flex items-center gap-2">
                        <button 
                          onClick={(e) => { e.stopPropagation(); handleEdit(s); }}
-                         className="p-2 opacity-0 group-hover:opacity-100 hover:bg-pink-50 rounded-xl text-slate-400 hover:text-pink-500 transition-all"
+                         className="p-2 opacity-0 group-hover:opacity-100 hover:bg-pink-50 rounded-xl text-slate-400 hover:text-pink-500 transition-all focus:outline-none"
                        >
                          <Edit2 className="w-4 h-4" />
                        </button>
                        <button 
                          onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                         className="p-2 opacity-0 group-hover:opacity-100 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-500 transition-all"
+                         className="p-2 opacity-0 group-hover:opacity-100 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-500 transition-all focus:outline-none"
                        >
                          <Trash2 className="w-4 h-4" />
                        </button>
                        <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-pink-500 transition-colors" />
                     </div>
-                  </motion.button>
+                  </motion.div>
                 )}
               </motion.div>
             ))}

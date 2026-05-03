@@ -6,6 +6,7 @@ import cors from "cors";
 import { body, validationResult } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from './supabase';
+import Groq from "groq-sdk";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
 const CAPTCHA_SECRET = process.env.CAPTCHA_SECRET || "captcha-secret-key";
@@ -18,6 +19,10 @@ const CAPTCHA_SECRET = process.env.CAPTCHA_SECRET || "captcha-secret-key";
       BEGIN 
         IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='users' AND COLUMN_NAME='status') THEN
           ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'pending';
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='sales' AND COLUMN_NAME='started_at') THEN
+          ALTER TABLE sales ADD COLUMN started_at TIMESTAMP WITH TIME ZONE;
         END IF;
       END $$;
     `});
@@ -260,22 +265,28 @@ router.post("/auth/signup",
     
     if (existingUser) return res.status(400).json({ error: "Username or email already exists" });
 
+    // Automatically assign first store if it exists
+    const { data: firstStore } = await supabase.from('stores').select('id').limit(1).maybeSingle();
+    const initialStores = firstStore ? [firstStore.id] : [];
+
     const { data: newUser, error } = await supabase.from('users').insert([{
       username,
       email,
       password: bcrypt.hashSync(password, 10),
       role: 'cashier',
-      status: 'pending', // Needs approval after joining a store
-      store_ids: []
+      status: 'active', // Active by default as requested
+      store_ids: initialStores
     }]).select().single();
 
     if (error) return res.status(400).json({ error: error.message });
+
+    const { data: userStores } = await supabase.from('stores').select('*').in('id', initialStores);
 
     const token = jwt.sign({ id: newUser.id, username: newUser.username, role: newUser.role, status: newUser.status, store_ids: newUser.store_ids }, JWT_SECRET);
     res.json({ 
       token, 
       user: { id: newUser.id, username: newUser.username, role: newUser.role, status: newUser.status, store_ids: newUser.store_ids },
-      stores: []
+      stores: userStores || []
     });
   }
 );
@@ -313,7 +324,7 @@ router.post("/auth/join-store",
 
     const { error } = await supabase.from('users').update({
       store_ids: [...currentIds, store.id],
-      status: 'pending' // Re-set to pending for admin approval for this store
+      status: 'active' // Keep active
     }).eq('id', req.user.id);
 
     if (error) return res.status(400).json({ error: error.message });
@@ -468,6 +479,12 @@ router.put("/products/:id", authenticateToken, checkStoreAccess, isAdmin, async 
   }).eq('id', req.params.id);
 
   if (oldStock !== Number(stock)) {
+    // Emit real-time update
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('inventory_update', { id: req.params.id, stock: Number(stock) });
+    }
+
     await supabase.from('inventory_logs').insert([{
       product_id: req.params.id,
       store_id: req.storeId,
@@ -522,6 +539,22 @@ router.post("/categories", authenticateToken, checkStoreAccess, isAdmin, async (
   res.json({ id: data.id });
 });
 
+router.put("/categories/:id", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res) => {
+  const { data } = await supabase.from('categories').update({ name: req.body.name }).eq('id', req.params.id).eq('store_id', req.storeId).select().single();
+  if (!data) return res.status(404).json({ error: "Category not found" });
+  res.json(data);
+});
+
+router.delete("/categories/:id", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  // Check if categories are used by products
+  const { data: used } = await supabase.from('products').select('id').eq('category_id', req.params.id).limit(1);
+  if (used && used.length > 0) {
+    return res.status(400).json({ error: "Cannot delete category assigned to products." });
+  }
+  await supabase.from('categories').delete().eq('id', req.params.id).eq('store_id', req.storeId);
+  res.json({ success: true });
+});
+
 router.get("/suppliers", authenticateToken, checkStoreAccess, async (req: any, res) => {
   const { data } = await supabase.from('suppliers').select('*').eq('store_id', req.storeId);
   res.json(data || []);
@@ -532,25 +565,92 @@ router.post("/suppliers", authenticateToken, checkStoreAccess, isAdmin, async (r
   res.json({ id: data.id });
 });
 
+router.put("/suppliers/:id", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res) => {
+  const { data } = await supabase.from('suppliers').update({ name: req.body.name, contact: req.body.contact }).eq('id', req.params.id).eq('store_id', req.storeId).select().single();
+  if (!data) return res.status(404).json({ error: "Supplier not found" });
+  res.json(data);
+});
+
+router.delete("/suppliers/:id", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  // Check if suppliers are used by products
+  const { data: used } = await supabase.from('products').select('id').eq('supplier_id', req.params.id).limit(1);
+  if (used && used.length > 0) {
+    return res.status(400).json({ error: "Cannot delete supplier assigned to products." });
+  }
+  await supabase.from('suppliers').delete().eq('id', req.params.id).eq('store_id', req.storeId);
+  res.json({ success: true });
+});
+
 router.get("/shifts/current", authenticateToken, checkStoreAccess, async (req: any, res) => {
-  const { data } = await supabase.from('shifts').select('*').eq('user_id', req.user.id).eq('store_id', req.storeId).eq('status', 'open').single();
+  const { data, error } = await supabase.from('shifts')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .eq('store_id', req.storeId)
+    .eq('status', 'open')
+    .maybeSingle();
+  
+  if (error) {
+    console.error('Error fetching current shift:', error);
+    return res.status(500).json({ error: error.message });
+  }
+
   res.json(data || null);
 });
 
 router.post("/shifts/open", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
-  const { data: existing } = await supabase.from('shifts').select('id').eq('user_id', req.user.id).eq('store_id', req.storeId).eq('status', 'open').single();
-  if (existing) return res.status(400).json({ error: "Shift already active" });
+  // Check for existing open shift
+  const { data: existing, error: checkError } = await supabase.from('shifts')
+    .select('id')
+    .eq('user_id', req.user.id)
+    .eq('store_id', req.storeId)
+    .eq('status', 'open')
+    .maybeSingle();
+  
+  if (checkError) {
+    console.error('Error checking existing shift:', checkError);
+    return res.status(500).json({ error: "Database error during shift check" });
+  }
 
-  const { data: store } = await supabase.from('stores').select('shift_pin').eq('id', req.storeId).single();
-  if (store?.shift_pin && store.shift_pin !== req.body.shift_code) return res.status(401).json({ error: "Invalid shift code" });
+  if (existing) {
+    return res.status(400).json({ error: "Shift already active for this store" });
+  }
 
-  const { data: newShift } = await supabase.from('shifts').insert([{
+  const { data: store, error: storeError } = await supabase.from('stores')
+    .select('shift_pin')
+    .eq('id', req.storeId)
+    .single();
+  
+  if (storeError) {
+    console.error('Error fetching store for shift open:', storeError);
+    return res.status(500).json({ error: "Database error fetching store info" });
+  }
+
+  // Allow bypass if shift_code is 'bypass'
+  if (req.body.shift_code !== 'bypass' && store?.shift_pin && store.shift_pin !== req.body.shift_code) {
+    return res.status(401).json({ error: "Invalid shift code" });
+  }
+
+  const openingBalance = Number(req.body.opening_balance);
+  if (isNaN(openingBalance)) {
+    return res.status(400).json({ error: "Invalid opening balance" });
+  }
+
+  const { data: newShift, error: createError } = await supabase.from('shifts').insert([{
     user_id: req.user.id,
     store_id: req.storeId,
-    opening_balance: Number(req.body.opening_balance),
-    shift_code: req.body.shift_code,
+    opening_balance: openingBalance,
+    shift_code: req.body.shift_code || 'auto',
     status: 'open'
-  }]).select().single();
+  }]).select().maybeSingle();
+
+  if (createError) {
+    console.error('Error creating new shift:', createError);
+    return res.status(500).json({ error: createError.message });
+  }
+
+  if (!newShift) {
+    return res.status(500).json({ error: "Failed to create shift record" });
+  }
 
   res.json({ id: newShift.id });
 });
@@ -574,7 +674,7 @@ router.post("/shifts/close", authenticateToken, checkStoreAccess, async (req: an
 });
 
 router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
-  const { items, total, discount, tax, payment_method, shift_id, amount_received, change_amount } = req.body;
+  const { items, total, discount, tax, payment_method, shift_id, amount_received, change_amount, started_at } = req.body;
   if (!shift_id) return res.status(400).json({ error: "No active shift" });
 
   const { data: sale, error: saleError } = await supabase.from('sales').insert([{
@@ -586,7 +686,8 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
     tax: Number(tax) || 0,
     payment_method,
     amount_received: Number(amount_received),
-    change_amount: Number(change_amount)
+    change_amount: Number(change_amount),
+    started_at: started_at || new Date().toISOString()
   }]).select().single();
 
   if (saleError) return res.status(400).json({ error: saleError.message });
@@ -598,6 +699,12 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
       const newStock = oldStock - item.quantity;
       await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
       
+      // Emit real-time update
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('inventory_update', { id: item.id, stock: newStock });
+      }
+
       await supabase.from('sale_items').insert([{
         sale_id: sale.id,
         store_id: req.storeId,
@@ -725,6 +832,103 @@ router.post("/admin/staff/:userId/reject", authenticateToken, checkStoreAccess, 
   
   if (error) return res.status(400).json({ error: error.message });
   res.json({ success: true });
+});
+
+router.get("/ai/data", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  try {
+    const { data: products } = await supabase.from('products').select('name, stock, low_stock_threshold, category_id').eq('store_id', req.storeId);
+    const { data: store } = await supabase.from('stores').select('name').eq('id', req.storeId).single();
+    const { data: bestSellers } = await supabase.rpc('get_sold_counts', { store_id_param: req.storeId });
+    
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const { data: recentSales } = await supabase
+      .from('sales')
+      .select('total, timestamp, started_at')
+      .eq('store_id', req.storeId)
+      .gte('timestamp', sevenDaysAgo.toISOString())
+      .order('timestamp', { ascending: false });
+
+    const sortedSellers = bestSellers?.sort((a: any, b: any) => b.count - a.count).slice(0, 10) || [];
+
+    // Calculate basic analytics for AI
+    const salesHistory = recentSales || [];
+    const totalRevenue = salesHistory.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+    
+    const processingTimes = salesHistory
+      .filter(s => s.started_at && s.timestamp)
+      .map(s => (new Date(s.timestamp).getTime() - new Date(s.started_at).getTime()) / 1000)
+      .filter(t => t > 0);
+    
+    const avgProcTime = processingTimes.length > 0 
+      ? processingTimes.reduce((a, b) => a + b, 0) / processingTimes.length 
+      : 0;
+
+    res.json({
+      storeName: store?.name,
+      products: products?.map(p => ({ name: p.name, stock: p.stock, threshold: p.low_stock_threshold })),
+      bestSellers: sortedSellers,
+      analytics: {
+        last7DaysSalesCount: salesHistory.length,
+        last7DaysRevenue: totalRevenue,
+        avgProcessingTimeSeconds: avgProcTime,
+        recentSalesSummary: salesHistory.slice(0, 20).map(s => ({
+          total: s.total,
+          time: s.timestamp
+        }))
+      }
+    });
+  } catch (err: any) {
+    console.error("AI Data Fetch Error:", err);
+    res.status(500).json({ error: err.message || "Failed to fetch data for AI analysis" });
+  }
+});
+
+router.post("/ai/report", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  try {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "Groq API key not configured in environment (GROQ_API_KEY)" });
+    }
+
+    const { businessData } = req.body;
+    if (!businessData) return res.status(400).json({ error: "Business data required" });
+
+    const groq = new Groq({ apiKey });
+
+    const prompt = `
+      You are an expert retail business analyst for Cathtea, specifically for the branch: "${businessData.storeName}".
+      Analyze the following business data and provide 4-5 professional, actionable insights suited for a specialty tea and snack business.
+      Focus on:
+      1. Stock health: Identify critical low stock items and potential overstock.
+      2. Sales Performance: Analyze best sellers and revenue trends from the last 7 days.
+      3. Operational Efficiency: Evaluate the average order processing time (${Number(businessData.analytics?.avgProcessingTimeSeconds || 0).toFixed(1)} seconds).
+      4. Strategy: Suggest specific promotions, bundles, or improvements to increase the average transaction value.
+
+      Data:
+      - Inventory: ${JSON.stringify(businessData.products)}
+      - Top Performers: ${JSON.stringify(businessData.bestSellers)}
+      - 7-Day Performance:
+        * Total Revenue: $${Number(businessData.analytics?.last7DaysRevenue || 0).toFixed(2)}
+        * Total Orders: ${businessData.analytics?.last7DaysSalesCount}
+        * Avg. Revenue per Order: $${(Number(businessData.analytics?.last7DaysRevenue || 0) / (Number(businessData.analytics?.last7DaysSalesCount) || 1)).toFixed(2)}
+      - Recent Sales Volume (last 20 orders): ${JSON.stringify(businessData.analytics?.recentSalesSummary)}
+
+      Format your response as a professional executive summary with clear headings and bulleted insights.
+      Use markdown for formatting. Be precise and business-oriented.
+    `;
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+    });
+
+    res.json({ insight: chatCompletion.choices[0]?.message?.content });
+  } catch (err: any) {
+    console.error("Groq AI Error:", err);
+    res.status(500).json({ error: err.message || "Failed to generate AI report" });
+  }
 });
 
 app.use('/api', router);

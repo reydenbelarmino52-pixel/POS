@@ -107,12 +107,12 @@ export default function Shifts() {
             )}
             <div className="space-y-6 text-left">
               <div className="space-y-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Shift Code</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Store Code</label>
                 <div className="relative group">
                   <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
                   <input 
                     type="password"
-                    placeholder="Enter Security Code"
+                    placeholder="Enter Store Pin / Code"
                     className="w-full pl-16 pr-8 py-6 bg-[#FAF9F6] border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-pink-500/5 text-slate-900 font-bold text-lg focus:bg-white transition-all shadow-inner tracking-widest"
                     value={shiftCode}
                     onChange={(e) => setShiftCode(e.target.value)}
@@ -121,7 +121,7 @@ export default function Shifts() {
               </div>
 
               <div className="space-y-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Opening Balance</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Opening Amount</label>
                 <div className="relative group">
                   <DollarSign className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
                   <input 
@@ -159,13 +159,13 @@ export default function Shifts() {
                     </div>
                     <div>
                         <h3 className="text-xl font-display font-bold text-slate-900 tracking-tight uppercase">Shift Active</h3>
-                        <p className="text-[10px] text-pink-500 font-bold uppercase tracking-widest mt-1">Operational since {new Date(currentShift.openTime).toLocaleTimeString()}</p>
+                        <p className="text-[10px] text-pink-500 font-bold uppercase tracking-widest mt-1">Operational since {currentShift.openTime ? new Date(currentShift.openTime).toLocaleTimeString() : '...'}</p>
                     </div>
                 </div>
 
                 <div className="space-y-4">
                     <div className="flex justify-between items-center p-6 bg-[#FAF9F6] rounded-2xl border border-slate-100">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Opening Balance</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Opening Amount</span>
                         <span className="text-lg font-bold text-slate-900 tracking-widest font-mono">${(Number(currentShift.openingBalance) || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between p-6 bg-emerald-50 border border-emerald-100 rounded-2xl">

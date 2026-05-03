@@ -9,6 +9,7 @@ interface Order {
   total: number;
   paymentMethod: string;
   timestamp: string;
+  started_at: string;
   tax: number;
   discount: number;
   items?: any[];
@@ -77,7 +78,7 @@ export default function OrderHistory() {
         order.cashierName.toLowerCase().includes(search.toLowerCase()) ||
         order.id.toString().includes(search)
       )
-      .sort((a, b) => {
+      .sort((a: any, b: any) => {
         const aVal = a[sortConfig.key];
         const bVal = b[sortConfig.key];
         if (aVal! < bVal!) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -86,15 +87,43 @@ export default function OrderHistory() {
       });
   }, [orders, search, sortConfig]);
 
+  const avgProcessingTime = useMemo(() => {
+    const ordersWithTime = filteredAndSortedOrders.filter(o => o.started_at && o.timestamp);
+    if (ordersWithTime.length === 0) return 0;
+    
+    const totalSeconds = ordersWithTime.reduce((acc, o) => {
+      const start = new Date(o.started_at).getTime();
+      const end = new Date(o.timestamp).getTime();
+      const diff = (end - start) / 1000;
+      return acc + (diff > 0 ? diff : 0);
+    }, 0);
+    
+    return totalSeconds / ordersWithTime.length;
+  }, [filteredAndSortedOrders]);
+
+  const formatDuration = (seconds: number) => {
+    if (seconds <= 0) return '0s';
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}m ${secs}s`;
+  };
+
   return (
     <div className="space-y-10 pb-12 print:hidden">
       {/* Header Actions */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 mb-4">
         <div>
           <h2 className="text-5xl font-display font-bold text-slate-900 tracking-tighter uppercase">Order History</h2>
-          <div className="flex items-center gap-2 mt-4">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">Total Records: {orders.length}</span>
+          <div className="flex items-center gap-6 mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">Total Records: {orders.length}</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-1.5 bg-pink-50 rounded-full border border-pink-100">
+               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-600">Avg. Processing:</span>
+               <span className="text-[10px] font-mono font-bold text-pink-700">{formatDuration(avgProcessingTime)}</span>
+            </div>
           </div>
         </div>
 
@@ -158,6 +187,7 @@ export default function OrderHistory() {
                   </div>
                 </th>
                 <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Payment</th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Proc. Time</th>
                 <th 
                   className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right cursor-pointer hover:text-slate-900 transition-colors group"
                   onClick={() => handleSort('total')}
@@ -224,6 +254,9 @@ export default function OrderHistory() {
                       <span className="px-3 py-1 bg-white border border-pink-100 rounded-lg text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:border-pink-500/30 group-hover:text-pink-500 transition-all">
                         {order.paymentMethod}
                       </span>
+                    </td>
+                    <td className="px-10 py-5 text-right font-mono text-[11px] font-bold text-slate-500">
+                      {order.started_at ? formatDuration((new Date(order.timestamp).getTime() - new Date(order.started_at).getTime()) / 1000) : 'N/A'}
                     </td>
                     <td className="px-10 py-5 text-right font-bold text-slate-900 tracking-tight font-mono text-base group-hover:text-pink-600 transition-colors">
                       ${(Number(order.total) || 0).toFixed(2)}

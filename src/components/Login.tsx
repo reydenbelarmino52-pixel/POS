@@ -25,12 +25,24 @@ export default function Login() {
   const [captchaToken, setCaptchaToken] = useState('');
   const { login } = useAuth();
 
+  const [captchaDistortions, setCaptchaDistortions] = useState<any[]>([]);
+
   const fetchCaptcha = async () => {
     try {
       const { data } = await api.get('/auth/captcha');
       setCaptchaQuestion(data.question);
       setCaptchaToken(data.captchaToken);
       setCaptchaAnswer('');
+      
+      // Pre-calculate distortions to avoid non-deterministic rendering
+      const distortions = data.question.split('').map(() => ({
+        rotate: Math.random() * 40 - 20,
+        y: Math.random() * 10 - 5,
+        scale: 0.9 + Math.random() * 0.3,
+        skew: Math.random() * 20 - 10,
+        blur: Math.random() * 1.5
+      }));
+      setCaptchaDistortions(distortions);
     } catch (err) {
       console.error('Failed to fetch captcha', err);
     }
@@ -196,26 +208,30 @@ export default function Login() {
                   
                   {/* The Captcha Code with Distortions */}
                   <div className="flex gap-1 relative z-10 select-none">
-                    {captchaQuestion.split('').map((char, i) => (
-                      <motion.span
-                        key={i}
-                        initial={false}
-                        animate={{ 
-                          rotate: Math.random() * 40 - 20,
-                          y: Math.random() * 10 - 5,
-                          scale: 0.9 + Math.random() * 0.3
-                        }}
-                        className={`text-2xl font-black font-mono tracking-tighter ${
-                          i % 2 === 0 ? 'text-pink-500 blur-[0.5px]' : 'text-blue-400 blur-[1px]'
-                        } skew-x-[${Math.random() * 20 - 10}deg]`}
-                        style={{
-                          textShadow: '2px 2px 0px rgba(0,0,0,0.5)',
-                          filter: `blur(${Math.random() * 1.5}px) contrast(150%)`
-                        }}
-                      >
-                        {char}
-                      </motion.span>
-                    ))}
+                    {captchaQuestion.split('').map((char, i) => {
+                      const dist = captchaDistortions[i] || { rotate: 0, y: 0, scale: 1, skew: 0, blur: 0 };
+                      return (
+                        <motion.span
+                          key={i}
+                          initial={false}
+                          animate={{ 
+                            rotate: dist.rotate,
+                            y: dist.y,
+                            scale: dist.scale
+                          }}
+                          className={`text-2xl font-black font-mono tracking-tighter ${
+                            i % 2 === 0 ? 'text-pink-500 blur-[0.5px]' : 'text-blue-400 blur-[1px]'
+                          }`}
+                          style={{
+                            textShadow: '2px 2px 0px rgba(0,0,0,0.5)',
+                            filter: `blur(${dist.blur}px) contrast(150%)`,
+                            transform: `skewX(${dist.skew}deg)`
+                          }}
+                        >
+                          {char}
+                        </motion.span>
+                      );
+                    })}
                   </div>
 
                   {/* Random Distortion Lines */}
