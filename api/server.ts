@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import cors from "cors";
 import { body, validationResult } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
-import { supabase } from './supabase';
+import { supabase } from './_supabase.js';
 import Groq from "groq-sdk";
 import serverless from "serverless-http";
 
