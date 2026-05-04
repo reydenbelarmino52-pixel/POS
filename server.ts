@@ -46,13 +46,34 @@ async function startServer() {
   app.set('io', io);
   app.set('wss', wss);
 
+  console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode`);
+
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
+    console.log("Initializing Vite middleware...");
+    const vite = await createViteServer({ 
+      server: { middlewareMode: true }, 
+      appType: "spa" 
+    });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
+    console.log(`Serving static files from ${distPath}`);
+    
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        const indexPath = path.join(distPath, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          res.sendFile(indexPath);
+        } else {
+          res.status(404).send('Production build found but index.html missing in dist/');
+        }
+      });
+    } else {
+      console.warn("Dist directory missing. Falling back to source (Warning: This will cause MIME errors in production environment!)");
+      app.use(express.static(path.join(process.cwd())));
+      app.get('*', (req, res) => res.sendFile(path.join(process.cwd(), 'index.html')));
+    }
   }
 
   httpServer.listen(PORT, "0.0.0.0", () => {
