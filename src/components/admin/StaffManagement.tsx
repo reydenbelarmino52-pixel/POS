@@ -62,8 +62,10 @@ export default function StaffManagement() {
   };
 
   const filteredStaff = staff.filter(s => {
-    const matchesSearch = s.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         s.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    const username = s.username || '';
+    const email = s.email || '';
+    const matchesSearch = username.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filter === 'all' || s.status === filter;
     return matchesSearch && matchesFilter;
   });
@@ -76,7 +78,7 @@ export default function StaffManagement() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shadow-slate-200">
+            <div className="w-12 h-12 bg-pink-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-pink-200">
               <Users className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-slate-900 tracking-tighter uppercase">Staff & Permissions</h1>
@@ -153,7 +155,7 @@ export default function StaffManagement() {
               onClick={() => setFilter(t)}
               className={`px-8 py-3 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all
                 ${filter === t 
-                  ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/10' 
+                  ? 'bg-pink-600 text-white shadow-xl shadow-pink-500/20' 
                   : 'text-slate-400 hover:text-slate-900'
                 }
               `}
@@ -189,10 +191,10 @@ export default function StaffManagement() {
                   <td className="px-10 py-5">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center font-bold text-pink-600 uppercase border border-pink-100 group-hover:scale-105 transition-transform">
-                        {s.username[0]}
+                        {s.username?.[0] || '?'}
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-900 tracking-tight uppercase">{s.username}</p>
+                        <p className="text-sm font-bold text-slate-900 tracking-tight uppercase">{s.username || 'Unknown'}</p>
                         <div className="flex items-center gap-1.5 text-slate-400">
                           <Mail className="w-3 h-3" />
                           <span className="text-[10px] font-medium lowercase truncate max-w-[150px]">{s.email || 'no-email@pos.com'}</span>
@@ -203,7 +205,7 @@ export default function StaffManagement() {
                   <td className="px-10 py-5">
                     <span className={`text-[9px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border
                       ${s.role === 'admin' 
-                        ? 'bg-slate-900 text-white border-slate-900' 
+                        ? 'bg-pink-600 text-white border-pink-600' 
                         : 'bg-white text-slate-600 border-slate-200'
                       }
                     `}>

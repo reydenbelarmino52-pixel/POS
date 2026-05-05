@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, ArrowUpDown, Receipt, Calendar, User, DollarSign, Download, Eye, XCircle, Package } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, Receipt, Calendar, User, PhilippinePeso, Download, Eye, XCircle, Package, Trash2, TriangleAlert } from 'lucide-react';
 import api from '../../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -21,8 +21,12 @@ export default function OrderHistory() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [fetchingDetail, setFetchingDetail] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Order; direction: 'asc' | 'desc' }>({
     key: 'timestamp',
     direction: 'desc'
@@ -71,18 +75,47 @@ export default function OrderHistory() {
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
   };
+  
+  const deleteOrder = async (id: string) => {
+    setIsDeleting(true);
+    try {
+      await api.delete(`/sales/${id}`);
+      setOrders(prev => prev.filter(o => o.id !== id));
+      setOrderToDelete(null);
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Failed to delete order");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const filteredAndSortedOrders = useMemo(() => {
     return orders
-      .filter(order => 
-        order.cashierName.toLowerCase().includes(search.toLowerCase()) ||
-        order.id.toString().includes(search)
-      )
+      .filter(order => {
+        const cashierName = order.cashierName || 'Unknown';
+        const matchesSearch = 
+          cashierName.toLowerCase().includes(search.toLowerCase()) ||
+          (order.id?.toString() || '').includes(search);
+        
+        let orderDate = '';
+        try {
+          if (order.timestamp) {
+            orderDate = new Date(order.timestamp).toISOString().split('T')[0];
+          }
+        } catch (e) {
+          console.error("Invalid date", order.timestamp);
+        }
+
+        const matchesStartDate = !startDate || (orderDate && orderDate >= startDate);
+        const matchesEndDate = !endDate || (orderDate && orderDate <= endDate);
+
+        return matchesSearch && matchesStartDate && matchesEndDate;
+      })
       .sort((a: any, b: any) => {
-        const aVal = a[sortConfig.key];
-        const bVal = b[sortConfig.key];
-        if (aVal! < bVal!) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aVal! > bVal!) return sortConfig.direction === 'asc' ? 1 : -1;
+        const aVal = a[sortConfig.key] ?? '';
+        const bVal = b[sortConfig.key] ?? '';
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
   }, [orders, search, sortConfig]);
@@ -127,7 +160,7 @@ export default function OrderHistory() {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1 max-w-4xl">
+        <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1 max-w-5xl">
           <div className="relative flex-1 group">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
             <input 
@@ -138,11 +171,105 @@ export default function OrderHistory() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+
+          <div className="flex items-center gap-2 bg-white border border-pink-100 rounded-[1.5rem] p-1 shadow-sm overflow-hidden min-w-[320px]">
+             <div className="flex-1 flex items-center gap-2 px-4 py-3 group/date">
+               <Calendar className="w-3.5 h-3.5 text-slate-300 group-focus-within/date:text-pink-500 transition-colors" />
+               <div className="flex flex-col">
+                 <span className="text-[7px] font-black uppercase tracking-[0.2em] text-slate-400">Start Date</span>
+                 <input 
+                   type="date"
+                   className="bg-transparent border-none p-0 focus:ring-0 text-[10px] font-bold text-slate-900 uppercase tracking-tighter"
+                   value={startDate}
+                   onChange={(e) => setStartDate(e.target.value)}
+                 />
+               </div>
+             </div>
+             <div className="w-px h-8 bg-pink-100/50" />
+             <div className="flex-1 flex items-center gap-2 px-4 py-3 group/date">
+               <div className="flex flex-col">
+                 <span className="text-[7px] font-black uppercase tracking-[0.2em] text-slate-400">End Date</span>
+                 <input 
+                   type="date"
+                   className="bg-transparent border-none p-0 focus:ring-0 text-[10px] font-bold text-slate-900 uppercase tracking-tighter"
+                   value={endDate}
+                   onChange={(e) => setEndDate(e.target.value)}
+                 />
+               </div>
+             </div>
+             {(startDate || endDate) && (
+               <button 
+                 onClick={() => { setStartDate(''); setEndDate(''); }}
+                 className="mr-2 p-2 hover:bg-rose-50 rounded-xl text-rose-400 transition-colors"
+                 title="Reset Timeline"
+               >
+                 <XCircle className="w-4 h-4" />
+               </button>
+             )}
+          </div>
           
           <div className="flex items-center gap-2">
-             <button className="p-5 bg-white border border-pink-100 rounded-2xl hover:bg-pink-50 transition-all group active:scale-90 shadow-sm">
-               <Filter className="w-5 h-5 text-slate-400 group-hover:text-pink-500" />
-             </button>
+             <div className="relative group">
+                <button className="px-6 py-5 bg-white border border-pink-100 rounded-3xl hover:bg-pink-50 transition-all flex items-center gap-4 active:scale-95 shadow-sm">
+                  <Filter className="w-4 h-4 text-pink-500" />
+                  <div className="text-left">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sorting By</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-900 leading-none">
+                      {sortConfig.key === 'timestamp' ? 'Chronological' : 
+                       sortConfig.key === 'total' ? 'High Value' :
+                       sortConfig.key === 'cashierName' ? 'Operator' : 'Method'}
+                    </p>
+                  </div>
+                </button>
+                
+                <div className="absolute right-0 mt-3 w-64 bg-white border border-pink-100 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(236,72,153,0.15)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-4 translate-y-2 group-hover:translate-y-0">
+                  <div className="px-4 py-2 mb-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sort Parameters</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <button 
+                      onClick={() => handleSort('timestamp')}
+                      className={`w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-all ${sortConfig.key === 'timestamp' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'hover:bg-pink-50 text-slate-600'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                         <Calendar className={`w-3.5 h-3.5 ${sortConfig.key === 'timestamp' ? 'text-white' : 'text-slate-400'}`} />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">Time Sequence</span>
+                      </div>
+                      <ArrowUpDown className={`w-3 h-3 ${sortConfig.key === 'timestamp' ? 'opacity-100' : 'opacity-0'}`} />
+                    </button>
+                    <button 
+                      onClick={() => handleSort('total')}
+                      className={`w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-all ${sortConfig.key === 'total' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'hover:bg-pink-50 text-slate-600'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                         <PhilippinePeso className={`w-3.5 h-3.5 ${sortConfig.key === 'total' ? 'text-white' : 'text-slate-400'}`} />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">Monetary Value</span>
+                      </div>
+                      <ArrowUpDown className={`w-3 h-3 ${sortConfig.key === 'total' ? 'opacity-100' : 'opacity-0'}`} />
+                    </button>
+                    <button 
+                      onClick={() => handleSort('cashierName')}
+                      className={`w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-all ${sortConfig.key === 'cashierName' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'hover:bg-pink-50 text-slate-600'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                         <User className={`w-3.5 h-3.5 ${sortConfig.key === 'cashierName' ? 'text-white' : 'text-slate-400'}`} />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">Operator Identity</span>
+                      </div>
+                      <ArrowUpDown className={`w-3 h-3 ${sortConfig.key === 'cashierName' ? 'opacity-100' : 'opacity-0'}`} />
+                    </button>
+                    <button 
+                      onClick={() => handleSort('paymentMethod')}
+                      className={`w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-all ${sortConfig.key === 'paymentMethod' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'hover:bg-pink-50 text-slate-600'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                         <Receipt className={`w-3.5 h-3.5 ${sortConfig.key === 'paymentMethod' ? 'text-white' : 'text-slate-400'}`} />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">Transfer Protocol</span>
+                      </div>
+                      <ArrowUpDown className={`w-3 h-3 ${sortConfig.key === 'paymentMethod' ? 'opacity-100' : 'opacity-0'}`} />
+                    </button>
+                  </div>
+                </div>
+             </div>
              <div className="h-8 w-px bg-pink-100 mx-2 hidden md:block"></div>
              <motion.button 
                whileHover={{ scale: 1.02 }}
@@ -186,7 +313,14 @@ export default function OrderHistory() {
                     Date & Time <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </th>
-                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Payment</th>
+                <th 
+                  className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-900 transition-colors group text-right"
+                  onClick={() => handleSort('paymentMethod')}
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Payment <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </th>
                 <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Proc. Time</th>
                 <th 
                   className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right cursor-pointer hover:text-slate-900 transition-colors group"
@@ -259,16 +393,26 @@ export default function OrderHistory() {
                       {order.started_at ? formatDuration((new Date(order.timestamp).getTime() - new Date(order.started_at).getTime()) / 1000) : 'N/A'}
                     </td>
                     <td className="px-10 py-5 text-right font-bold text-slate-900 tracking-tight font-mono text-base group-hover:text-pink-600 transition-colors">
-                      ${(Number(order.total) || 0).toFixed(2)}
+                      ₱{(Number(order.total) || 0).toFixed(2)}
                     </td>
                     <td className="px-10 py-5 text-right">
-                      <button 
-                        onClick={() => fetchOrderDetail(order.id)}
-                        disabled={fetchingDetail}
-                        className="p-3 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button 
+                          onClick={() => fetchOrderDetail(order.id)}
+                          disabled={fetchingDetail}
+                          className="p-3 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => setOrderToDelete(order)}
+                          className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                          title="Delete Order"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </motion.tr>
                 ))
@@ -318,9 +462,9 @@ export default function OrderHistory() {
                       </div>
                       <div className="flex flex-col flex-1">
                         <span className="text-xs font-bold text-slate-900 uppercase">{item.name}</span>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{item.quantity} units x ${(Number(item.priceAtSale) || 0).toFixed(2)}</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{item.quantity} units x ₱{(Number(item.priceAtSale) || 0).toFixed(2)}</span>
                       </div>
-                      <span className="font-bold text-slate-900 font-mono tracking-tighter">${((Number(item.priceAtSale) || 0) * (Number(item.quantity) || 0)).toFixed(2)}</span>
+                      <span className="font-bold text-slate-900 font-mono tracking-tighter">₱{((Number(item.priceAtSale) || 0) * (Number(item.quantity) || 0)).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -328,21 +472,21 @@ export default function OrderHistory() {
                 <div className="border-t-4 border-double border-pink-100 pt-8 space-y-3 mb-10">
                   <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     <span>Subtotal</span>
-                    <span className="font-mono text-slate-900">${((Number(selectedOrder.total) || 0) - (Number(selectedOrder.tax) || 0) + (Number(selectedOrder.discount) || 0)).toFixed(2)}</span>
+                    <span className="font-mono text-slate-900">₱{((Number(selectedOrder.total) || 0) - (Number(selectedOrder.tax) || 0) + (Number(selectedOrder.discount) || 0)).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     <span>Tax (12%)</span>
-                    <span className="font-mono text-slate-900">${(Number(selectedOrder.tax) || 0).toFixed(2)}</span>
+                    <span className="font-mono text-slate-900">₱{(Number(selectedOrder.tax) || 0).toFixed(2)}</span>
                   </div>
                   {selectedOrder.discount > 0 && (
                     <div className="flex justify-between text-[10px] font-bold text-red-500 uppercase tracking-widest">
                         <span>Discount</span>
-                        <span className="font-mono">-${(Number(selectedOrder.discount) || 0).toFixed(2)}</span>
+                        <span className="font-mono">-₱{(Number(selectedOrder.discount) || 0).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between pt-5 border-t border-pink-100">
                     <span className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Total Amount</span>
-                    <span className="text-2xl font-bold text-pink-600 font-mono tracking-tighter">${(Number(selectedOrder.total) || 0).toFixed(2)}</span>
+                    <span className="text-2xl font-bold text-pink-600 font-mono tracking-tighter">₱{(Number(selectedOrder.total) || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -351,11 +495,11 @@ export default function OrderHistory() {
                   <div className="space-y-2 border-t border-pink-200 pt-4">
                      <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Paid</span>
-                        <span className="font-mono text-slate-900">${(Number(selectedOrder.amountReceived || selectedOrder.total) || 0).toFixed(2)}</span>
+                        <span className="font-mono text-slate-900">₱{(Number(selectedOrder.amountReceived || selectedOrder.total) || 0).toFixed(2)}</span>
                      </div>
                      <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Change</span>
-                        <span className="font-mono text-slate-900">${(Number(selectedOrder.changeAmount) || 0).toFixed(2)}</span>
+                        <span className="font-mono text-slate-900">₱{(Number(selectedOrder.changeAmount) || 0).toFixed(2)}</span>
                      </div>
                   </div>
                 </div>
@@ -363,7 +507,7 @@ export default function OrderHistory() {
                 <div className="flex gap-4 print:hidden">
                   <button 
                     onClick={handlePrint}
-                    className="flex-1 py-5 bg-slate-900 text-white rounded-[1.5rem] font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-slate-800 transition-all shadow-xl active:scale-95"
+                    className="flex-1 py-5 bg-pink-600 text-white rounded-[1.5rem] font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-pink-500 transition-all shadow-xl shadow-pink-200 active:scale-95"
                   >
                     <Receipt className="w-5 h-5 opacity-50" />
                     Print Receipt
@@ -375,6 +519,52 @@ export default function OrderHistory() {
                     Close
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Dialog */}
+      <AnimatePresence>
+        {orderToDelete && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setOrderToDelete(null)}
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-white p-10 rounded-[3rem] shadow-2xl max-w-sm w-full text-center"
+            >
+              <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8">
+                <TriangleAlert className="w-10 h-10 text-rose-500" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 uppercase tracking-tighter mb-4">Confirm Deletion</h3>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-10">
+                Are you absolutely sure you want to delete <span className="text-slate-900">Order #{orderToDelete.id}</span>? This action is irreversible and all transaction data will be lost.
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => deleteOrder(orderToDelete.id)}
+                  disabled={isDeleting}
+                  className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-bold text-xs uppercase tracking-[0.2em] shadow-xl shadow-rose-200 hover:bg-rose-500 transition-all disabled:opacity-50"
+                >
+                  {isDeleting ? 'Erasing Record...' : 'Yes, Delete Order'}
+                </button>
+                <button 
+                  onClick={() => setOrderToDelete(null)}
+                  disabled={isDeleting}
+                  className="w-full py-5 bg-slate-50 text-slate-400 rounded-[1.5rem] font-bold text-xs uppercase tracking-[0.2em] hover:bg-slate-100 transition-all font-display"
+                >
+                  Cancel Action
+                </button>
               </div>
             </motion.div>
           </div>

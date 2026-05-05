@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar, Legend, Brush
 } from 'recharts';
-import { TrendingUp, DollarSign, Package, ShoppingCart, Users, Activity, Clock, ArrowRight } from 'lucide-react';
+import { TrendingUp, PhilippinePeso, Package, ShoppingCart, Users, Activity, Clock, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -31,7 +31,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               <span className="text-sm font-bold text-slate-900 font-mono">
                 {typeof entry?.value === 'number' ? 
                   (entry?.name?.toLowerCase().includes('revenue') || entry?.name?.toLowerCase().includes('value') ? 
-                    `$${entry.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 
+                    `₱${entry.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 
                     entry.value.toLocaleString()) : 
                   entry?.value || '-'}
               </span>
@@ -112,7 +112,7 @@ export default function Dashboard() {
           </div>
           <button 
             onClick={() => window.location.reload()}
-            className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl"
+            className="px-8 py-4 bg-pink-600 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-pink-500 transition-all shadow-xl shadow-pink-200"
           >
             Check Status
           </button>
@@ -163,20 +163,20 @@ export default function Dashboard() {
           <motion.div 
             whileHover={{ scale: 1.02, translateY: -5 }}
             onClick={() => navigate('/pos')}
-            className="group cursor-pointer backdrop-blur-2xl bg-slate-900 border border-slate-800 p-10 rounded-[3rem] shadow-2xl shadow-slate-200 relative overflow-hidden"
+            className="group cursor-pointer backdrop-blur-2xl bg-white border border-pink-100 p-10 rounded-[3rem] shadow-2xl shadow-pink-100/50 relative overflow-hidden"
           >
-            <div className="absolute top-0 right-0 w-48 h-48 bg-pink-500/10 blur-[80px] group-hover:bg-pink-500/20 transition-colors"></div>
+            <div className="absolute top-0 right-0 w-48 h-48 bg-pink-500/5 blur-[80px] group-hover:bg-pink-500/10 transition-colors"></div>
             <div className="relative z-10 flex flex-col h-full">
-              <div className="w-16 h-16 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center text-pink-500 mb-8 group-hover:scale-110 transition-transform">
+              <div className="w-16 h-16 bg-pink-50 rounded-2xl border border-pink-100 flex items-center justify-center text-pink-500 mb-8 group-hover:scale-110 transition-transform">
                 <ShoppingCart className="w-8 h-8" />
               </div>
-              <h3 className="text-3xl font-display font-bold text-white mb-3 uppercase tracking-tight">POS Access</h3>
-              <p className="text-slate-400 text-sm font-medium mb-8 leading-relaxed max-w-[280px]">
+              <h3 className="text-3xl font-display font-bold text-slate-900 mb-3 uppercase tracking-tight">POS Access</h3>
+              <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed max-w-[280px]">
                 Enter the operational POS interface to process customer orders and generate receipts.
               </p>
-              <div className="mt-auto flex items-center gap-3 text-white font-bold uppercase tracking-widest text-xs">
+              <div className="mt-auto flex items-center gap-3 text-pink-600 font-bold uppercase tracking-widest text-xs">
                 <span>Enter POS</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform text-pink-500" />
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
               </div>
             </div>
           </motion.div>
@@ -221,10 +221,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Daily Revenue" 
-          value={`$${(todayRevenue || 0).toLocaleString()}`} 
+          value={`₱${(todayRevenue || 0).toLocaleString()}`} 
           trend={todayRevenue > 0 ? "+Active" : "Neutral"} 
           positive={todayRevenue > 0} 
-          icon={DollarSign}
+          icon={PhilippinePeso}
           subtitle="Real-time intake"
         />
         <StatCard 
@@ -397,7 +397,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-slate-900 tracking-widest font-mono">${(item.totalRevenue || 0).toLocaleString()}</p>
+                      <p className="text-lg font-bold text-slate-900 tracking-widest font-mono">₱{(item.totalRevenue || 0).toLocaleString()}</p>
                       <div className="flex items-center gap-1 justify-end text-[9px] text-pink-500 font-bold uppercase tracking-widest mt-1">
                         <TrendingUp className="w-3 h-3" />
                         Peak Performance

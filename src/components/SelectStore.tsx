@@ -115,16 +115,32 @@ export default function SelectStore() {
                        />
                     </div>
                     <div className="space-y-2">
-                       <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Shift Code</label>
+                       <div className="flex justify-between items-center px-1">
+                         <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Shift Code</label>
+                         {editPin && (editPin.length < 4 || editPin.length > 8) && (
+                           <span className="text-[8px] font-bold text-rose-500 uppercase tracking-tighter">4-8 digits required</span>
+                         )}
+                       </div>
                        <input 
-                         className="w-full bg-slate-50 border border-slate-100 p-3 rounded-xl font-mono text-slate-900 tracking-widest text-sm outline-none focus:ring-2 focus:ring-pink-500/20"
+                         className={`w-full bg-slate-50 border p-3 rounded-xl font-mono text-slate-900 tracking-widest text-sm outline-none focus:ring-2 transition-all ${
+                           editPin && (editPin.length < 4 || editPin.length > 8)
+                             ? 'border-rose-200 focus:ring-rose-500/20'
+                             : 'border-slate-100 focus:ring-pink-500/20'
+                         }`}
                          value={editPin}
-                         onChange={(e) => setEditPin(e.target.value)}
+                         onChange={(e) => {
+                           const val = e.target.value.replace(/\D/g, '');
+                           if (val.length <= 8) setEditPin(val);
+                         }}
                          placeholder="1234"
                        />
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button onClick={saveEdit} disabled={loading} className="px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 transition-colors flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
+                      <button 
+                        onClick={saveEdit} 
+                        disabled={loading || !editName.trim() || editPin.length < 4 || editPin.length > 8} 
+                        className="px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 transition-colors flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest disabled:bg-slate-200 disabled:text-slate-400"
+                      >
                         <Check className="w-4 h-4" /> Save
                       </button>
                       <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 transition-colors flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">

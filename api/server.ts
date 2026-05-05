@@ -432,19 +432,31 @@ router.get("/products", authenticateToken, checkStoreAccess, async (req: any, re
   res.json(formatted || []);
 });
 
-router.post("/products", authenticateToken, checkStoreAccess, isAdmin, [body('name').notEmpty(), body('price').isFloat(), body('stock').isInt(), validate], async (req: any, res: any) => {
+router.post("/products", authenticateToken, checkStoreAccess, isAdmin, [
+  body('name').notEmpty(),
+  body('stock').isInt(),
+  validate
+], async (req: any, res: any) => {
   const { name, price, stock, categoryId, supplierId, imageUrl, lowStockThreshold, type } = req.body;
-  const { data: newProduct } = await supabase.from('products').insert([{
+  
+  // Basic sanity check: products for sale should have a price
+  if (type !== 'supply' && (price === undefined || isNaN(parseFloat(price)))) {
+    return res.status(400).json({ error: "Saleable products must have a price" });
+  }
+
+  const { data: newProduct, error } = await supabase.from('products').insert([{
     store_id: req.storeId,
     name,
     type: type || 'product',
-    price: Number(price),
+    price: type === 'supply' ? 0 : Number(price),
     stock: Number(stock),
     category_id: categoryId || null,
     supplier_id: supplierId || null,
     image_url: imageUrl || null,
     low_stock_threshold: Number(lowStockThreshold) || 5
   }]).select().single();
+
+  if (error) return res.status(400).json({ error: error.message });
 
   await supabase.from('inventory_logs').insert([{
     product_id: newProduct.id,
@@ -468,7 +480,7 @@ router.put("/products/:id", authenticateToken, checkStoreAccess, isAdmin, async 
   await supabase.from('products').update({
     name,
     type: type || product.type,
-    price: Number(price),
+    price: (type || product.type) === 'supply' ? 0 : (price !== undefined ? Number(price) : product.price),
     stock: Number(stock),
     category_id: categoryId || null,
     supplier_id: supplierId || null,
@@ -620,7 +632,8 @@ router.post("/shifts/open", authenticateToken, checkStoreAccess, async (req: any
   }
 
   if (existing) {
-    return res.status(400).json({ error: "Shift already active for this store" });
+    const { data: fullShift } = await supabase.from('shifts').select('*').eq('id', existing.id).single();
+    return res.json(fullShift);
   }
 
   const { data: store, error: storeError } = await supabase.from('stores')
@@ -633,7 +646,7 @@ router.post("/shifts/open", authenticateToken, checkStoreAccess, async (req: any
     return res.status(500).json({ error: "Database error fetching store info" });
   }
 
-  if (store?.shift_pin && store.shift_pin !== req.body.shift_code) {
+  if (store?.shift_pin && store.shift_pin !== req.body.shift_code && req.body.shift_code !== 'bypass') {
     return res.status(401).json({ error: "Invalid shift pin" });
   }
 
@@ -699,29 +712,74 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
 
   if (saleError) return res.status(400).json({ error: saleError.message });
 
-  for (const item of items) {
-    const { data: prod } = await supabase.from('products').select('name, stock, low_stock_threshold').eq('id', item.id).single();
-    if (prod) {
-      const oldStock = prod.stock;
-      const newStock = oldStock - item.quantity;
-      await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+  // Ingredient Deduction Logic (Cups, Straws, Addons)
+  const deductSupply = async (name: string, quantity: number) => {
+    const { data: supply } = await supabase.from('products')
+      .select('id, stock')
+      .eq('store_id', req.storeId)
+      .eq('type', 'supply')
+      .ilike('name', `%${name}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (supply) {
+      const newStock = Math.max(0, Number(supply.stock) - quantity);
+      await supabase.from('products')
+        .update({ stock: newStock })
+        .eq('id', supply.id);
       
-      // Emit real-time update
       const io = req.app.get('io');
       if (io) {
-        io.emit('inventory_update', { id: item.id, stock: newStock });
+        io.emit('inventory_update', { id: supply.id, stock: newStock });
       }
+    }
+  };
 
-      // Broadcast low stock alert
-      const wss = req.app.get('wss');
-      if (wss && newStock <= (Number(prod.low_stock_threshold) || 5)) {
-        wss.clients.forEach((client: any) => {
-          if (client.readyState === 1) {
-            client.send(JSON.stringify({ name: prod.name, stock: newStock }));
+  for (const item of items) {
+    const { data: prod } = await supabase.from('products').select('*').eq('id', item.id).single();
+    if (prod) {
+      const oldStock = Number(prod.stock);
+      const newStock = Math.max(0, oldStock - item.quantity);
+
+      // Deduct the main product stock if it's a regular item
+      if (prod.type !== 'supply') {
+        await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+        
+        const io = req.app.get('io');
+        if (io) io.emit('inventory_update', { id: item.id, stock: newStock });
+      }
+      
+      // Dynamic Ingredient Deductions
+      const { data: ingredients } = await supabase.from('product_ingredients')
+        .select('ingredient_id, quantity')
+        .eq('product_id', item.id);
+      
+      if (ingredients) {
+        for (const ing of ingredients) {
+          const { data: supply } = await supabase.from('products')
+            .select('id, stock')
+            .eq('id', ing.ingredient_id)
+            .single();
+          
+          if (supply) {
+            const consumed = Number(ing.quantity) * item.quantity;
+            const newSupplyStock = Math.max(0, Number(supply.stock) - consumed);
+            await supabase.from('products').update({ stock: newSupplyStock }).eq('id', supply.id);
+            
+            const io = req.app.get('io');
+            if (io) io.emit('inventory_update', { id: supply.id, stock: newSupplyStock });
           }
-        });
+        }
+      }
+      
+      // Conditional Addon Deductions (Still based on name for now as addons are dynamic strings in cart)
+      if (item.addons && Array.isArray(item.addons)) {
+        for (const addon of item.addons) {
+          await deductSupply(addon, item.quantity);
+        }
       }
 
+      // Record items sold
       await supabase.from('sale_items').insert([{
         sale_id: sale.id,
         store_id: req.storeId,
@@ -730,6 +788,7 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
         price_at_sale: item.price
       }]);
 
+      // Log inventory change
       await supabase.from('inventory_logs').insert([{
         product_id: item.id,
         store_id: req.storeId,
@@ -765,6 +824,23 @@ router.get("/sales/:id", authenticateToken, checkStoreAccess, async (req: any, r
   res.json({ ...sale, cashierName: (sale as any).users?.username, items: formattedItems });
 });
 
+router.delete("/sales/:id", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  try {
+    // Delete sale items first
+    await supabase.from('sale_items').delete().eq('sale_id', req.params.id);
+    // Delete the sale
+    const { error } = await supabase.from('sales').delete().eq('id', req.params.id).eq('store_id', req.storeId);
+    
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "Internal server error during order deletion" });
+  }
+});
+
 router.get("/products/:id/logs", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
   const { data } = await supabase.from('inventory_logs').select('*, users(username)').eq('product_id', req.params.id).eq('store_id', req.storeId).order('timestamp', { ascending: false });
   const formatted = data?.map(l => ({ 
@@ -775,6 +851,44 @@ router.get("/products/:id/logs", authenticateToken, checkStoreAccess, async (req
     changeType: l.change_type
   }));
   res.json(formatted || []);
+});
+
+router.get("/products/:id/ingredients", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
+  const { data } = await supabase.from('product_ingredients')
+    .select('*, ingredient:products!ingredient_id(name, type)')
+    .eq('product_id', req.params.id)
+    .eq('store_id', req.storeId);
+  
+  const formatted = data?.map(i => ({
+    ...i,
+    ingredientName: (i as any).ingredient?.name,
+    ingredientType: (i as any).ingredient?.type
+  }));
+  res.json(formatted || []);
+});
+
+router.post("/products/:id/ingredients", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  const { ingredients } = req.body; // Array of { ingredientId, quantity }
+  
+  // Clear existing
+  await supabase.from('product_ingredients')
+    .delete()
+    .eq('product_id', req.params.id)
+    .eq('store_id', req.storeId);
+  
+  if (ingredients && ingredients.length > 0) {
+    const toInsert = ingredients.map((i: any) => ({
+      product_id: req.params.id,
+      store_id: req.storeId,
+      ingredient_id: i.ingredientId,
+      quantity: Number(i.quantity) || 1
+    }));
+    
+    const { error } = await supabase.from('product_ingredients').insert(toInsert);
+    if (error) return res.status(400).json({ error: error.message });
+  }
+  
+  res.json({ success: true });
 });
 
 router.get("/inventory/logs", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res) => {

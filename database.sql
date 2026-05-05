@@ -123,7 +123,17 @@ CREATE TABLE IF NOT EXISTS inventory_logs (
   timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 12. RPC for Analytics
+-- 12. Product Ingredients (Recipe mapping)
+CREATE TABLE IF NOT EXISTS product_ingredients (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+  ingredient_id UUID REFERENCES products(id) ON DELETE CASCADE,
+  quantity DECIMAL(10,2) NOT NULL DEFAULT 1.0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 13. RPC for Analytics
 DROP FUNCTION IF EXISTS get_sold_counts(UUID);
 CREATE OR REPLACE FUNCTION get_sold_counts(store_id_param UUID)
 RETURNS TABLE(product_id UUID, count BIGINT, revenue DECIMAL(10,2)) AS $$

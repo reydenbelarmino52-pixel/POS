@@ -13,34 +13,61 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number;
+  sugarLevel?: number; // 0, 25, 50, 75, 100
+  iceLevel?: string;   // Normal, Less, No Ice, More Ice
+  addons?: string[];   // ['Nata de Coco', 'Pearls', etc]
 }
 
 export function usePOS() {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [discount, setDiscount] = useState(0);
+  const [isSeniorCitizen, setIsSeniorCitizen] = useState(false);
 
-  const addToCart = useCallback((product: Product) => {
+  const addToCart = useCallback((product: Product, sugarLevel: number = 100, iceLevel: string = 'Normal', addons: string[] = []) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
+      const addonKey = addons.sort().join(',');
+      const existing = prev.find(item => 
+        item.id === product.id && 
+        item.sugarLevel === sugarLevel && 
+        item.iceLevel === iceLevel &&
+        (item.addons || []).sort().join(',') === addonKey
+      );
+
       if (existing) {
-        if (existing.quantity >= product.stock) return prev; // Stock limit
+        if (existing.quantity >= product.stock) return prev;
         return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          (item.id === product.id && 
+           item.sugarLevel === sugarLevel && 
+           item.iceLevel === iceLevel &&
+           (item.addons || []).sort().join(',') === addonKey
+          ) ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: 1, sugarLevel, iceLevel, addons }];
     });
   }, []);
 
-  const removeFromCart = useCallback((productId: string) => {
-    setCart(prev => prev.filter(item => item.id !== productId));
+  const removeFromCart = useCallback((productId: string, sugarLevel?: number, iceLevel?: string, addons?: string[]) => {
+    const addonKey = addons?.sort().join(',');
+    setCart(prev => prev.filter(item => {
+      const match = item.id === productId && 
+                   (sugarLevel === undefined || item.sugarLevel === sugarLevel) &&
+                   (iceLevel === undefined || item.iceLevel === iceLevel) &&
+                   (addonKey === undefined || (item.addons || []).sort().join(',') === addonKey);
+      return !match;
+    }));
   }, []);
 
-  const updateQuantity = useCallback((productId: string, delta: number) => {
+  const updateQuantity = useCallback((productId: string, delta: number, sugarLevel?: number, iceLevel?: string, addons?: string[]) => {
+    const addonKey = addons?.sort().join(',');
     setCart(prev => prev.map(item => {
-      if (item.id === productId) {
+      const match = item.id === productId && 
+                   (sugarLevel === undefined || item.sugarLevel === sugarLevel) &&
+                   (iceLevel === undefined || item.iceLevel === iceLevel) &&
+                   (addonKey === undefined || (item.addons || []).sort().join(',') === addonKey);
+      
+      if (match) {
         const newQty = Math.max(1, item.quantity + delta);
-        if (newQty > item.stock) return item; // Stock limit
+        if (newQty > item.stock) return item;
         return { ...item, quantity: newQty };
       }
       return item;
@@ -49,12 +76,36 @@ export function usePOS() {
 
   const clearCart = useCallback(() => {
     setCart([]);
-    setDiscount(0);
+    setIsSeniorCitizen(false);
   }, []);
 
-  const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.12; // Static 12% tax
-  const total = (subtotal + tax) - discount;
+  const rawSubtotal = cart.reduce((acc, item) => {
+    let itemTotal = item.price * item.quantity;
+    
+    // Addon prices
+    const addonPrices: Record<string, number> = {
+      'Nata de Coco': 15,
+      'Pearls': 15,
+      'Pudding': 20,
+      'Crystal Boba': 20
+    };
+
+    if (item.addons) {
+      item.addons.forEach(addon => {
+        itemTotal += (addonPrices[addon] || 0) * item.quantity;
+      });
+    }
+
+    return acc + itemTotal;
+  }, 0);
+  
+  // Philippine Senior Citizen / PWD Discount Logic:
+  // 1. Remove 12% VAT (Vat-Exempt Sales)
+  // 2. Apply 20% Discount on the VAT-exempt amount
+  const vatExemptSales = isSeniorCitizen ? rawSubtotal / 1.12 : rawSubtotal;
+  const scDiscount = isSeniorCitizen ? vatExemptSales * 0.20 : 0;
+  const tax = isSeniorCitizen ? 0 : rawSubtotal * 0.12;
+  const total = isSeniorCitizen ? vatExemptSales - scDiscount : rawSubtotal + tax;
 
   return {
     cart,
@@ -62,10 +113,12 @@ export function usePOS() {
     removeFromCart,
     updateQuantity,
     clearCart,
-    subtotal,
+    subtotal: rawSubtotal,
+    vatExemptSales,
+    scDiscount,
     tax,
     total,
-    discount,
-    setDiscount
+    isSeniorCitizen,
+    setIsSeniorCitizen
   };
 }

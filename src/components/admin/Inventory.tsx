@@ -16,18 +16,28 @@ import {
   ArrowRightLeft
 } from 'lucide-react';
 import api from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { z } from 'zod';
+import { useAuth } from '../../hooks/useAuth';
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   type: z.enum(['product', 'supply']),
-  price: z.number().min(0, 'Price must be 0 or greater'),
+  price: z.number().min(0, 'Price must be 0 or greater').optional(),
   stock: z.number().int().min(0, 'Stock must be 0 or greater'),
   categoryId: z.string().optional(),
   supplierId: z.string().optional(),
   imageUrl: z.string().optional(),
   lowStockThreshold: z.number().int().min(0, 'Threshold must be 0 or greater'),
+}).refine((data) => {
+  if (data.type === 'product' && (data.price === undefined || data.price <= 0)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Saleable products must have a price greater than 0",
+  path: ["price"],
 });
 
 const categorySchema = z.object({
@@ -40,6 +50,7 @@ const supplierSchema = z.object({
 });
 
 export default function Inventory() {
+  const { currentStore } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -74,6 +85,14 @@ export default function Inventory() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<any>(null);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
+
+  // Stock Adjustment State
+  const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
+  const [adjustingProduct, setAdjustingProduct] = useState<any>(null);
+  const [adjustmentValue, setAdjustmentValue] = useState<number>(0);
+  const [adjustmentType, setAdjustmentType] = useState<'add' | 'remove' | 'set'>('add');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -87,22 +106,41 @@ export default function Inventory() {
     lowStockThreshold: 5
   });
 
+  const [selectedIngredients, setSelectedIngredients] = useState<any[]>([]); // { ingredientId, quantity }
+  const [ingredientsLoading, setIngredientsLoading] = useState(false);
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (currentStore) {
+      fetchData();
+    }
+  }, [currentStore]);
 
   const fetchData = async () => {
+    if (!currentStore) return;
     try {
-      const [p, c, s] = await Promise.all([
+      const [p, c, s, soldData] = await Promise.all([
         api.get('/products'),
         api.get('/categories'),
-        api.get('/suppliers')
+        api.get('/suppliers'),
+        supabase.rpc('get_sold_counts', { store_id_param: currentStore.id })
       ]);
-      setProducts(p.data);
-      setCategories(c.data);
-      setSuppliers(s.data);
+
+      const soldCounts = soldData?.data || [];
+      const productsData = p?.data || [];
+      
+      const productsWithSales = productsData.map((product: any) => {
+        const soldInfo = Array.isArray(soldCounts) ? soldCounts.find((s: any) => s.product_id === product.id) : null;
+        return {
+          ...product,
+          soldCount: soldInfo ? Number(soldInfo.count) : 0
+        };
+      });
+
+      setProducts(productsWithSales);
+      setCategories(c?.data || []);
+      setSuppliers(s?.data || []);
     } catch (err) {
-      console.error(err);
+      console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -162,12 +200,15 @@ export default function Inventory() {
   };
 
   const deleteCategory = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this category?")) return;
+    setIsDeletingCategory(true);
     try {
       await api.delete(`/categories/${id}`);
+      setCategoryToDelete(null);
       fetchData();
     } catch (err: any) {
       alert(err.response?.data?.error || "Failed to delete category");
+    } finally {
+      setIsDeletingCategory(false);
     }
   };
 
@@ -253,11 +294,22 @@ export default function Inventory() {
 
       const finalData = { ...formData, imageUrl };
 
+      let productId = editingProduct?.id;
+
       if (editingProduct) {
         await api.put(`/products/${editingProduct.id}`, finalData);
       } else {
-        await api.post('/products', finalData);
+        const resp = await api.post('/products', finalData);
+        productId = resp.data.id;
       }
+
+      // Save Ingredients
+      if (formData.type === 'product' && productId) {
+        await api.post(`/products/${productId}/ingredients`, {
+          ingredients: selectedIngredients.filter(i => i.ingredientId && i.quantity > 0)
+        });
+      }
+
       setModalOpen(false);
       setEditingProduct(null);
       setSelectedFile(null);
@@ -287,6 +339,21 @@ export default function Inventory() {
     }
   };
 
+  const fetchIngredients = async (id: string) => {
+    setIngredientsLoading(true);
+    try {
+      const { data } = await api.get(`/products/${id}/ingredients`);
+      setSelectedIngredients(data.map((i: any) => ({
+        ingredientId: i.ingredient_id,
+        quantity: i.quantity
+      })));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIngredientsLoading(false);
+    }
+  };
+
   const openEdit = (product: any) => {
     setEditingProduct(product);
     setFormData({
@@ -299,7 +366,51 @@ export default function Inventory() {
       imageUrl: product.imageUrl || '',
       lowStockThreshold: Number(product.lowStockThreshold) || 5
     });
+    setSelectedIngredients([]);
+    if (product.type === 'product') {
+      fetchIngredients(product.id);
+    }
     setModalOpen(true);
+  };
+
+  const openAdjustment = (product: any) => {
+    setAdjustingProduct(product);
+    setAdjustmentValue(0);
+    setAdjustmentType('add');
+    setAdjustmentModalOpen(true);
+  };
+
+  const handleAdjustStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustingProduct) return;
+
+    const val = Number(adjustmentValue);
+    let newStock = Number(adjustingProduct.stock);
+    
+    if (adjustmentType === 'add') newStock += val;
+    else if (adjustmentType === 'remove') newStock -= val;
+    else if (adjustmentType === 'set') newStock = val;
+
+    if (newStock < 0) {
+      alert("Stock cannot be negative");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await api.put(`/products/${adjustingProduct.id}`, {
+        ...adjustingProduct,
+        stock: newStock,
+        price: Number(adjustingProduct.price)
+      });
+      setAdjustmentModalOpen(false);
+      setAdjustingProduct(null);
+      fetchData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Failed to adjust stock");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const deleteProduct = async (id: string) => {
@@ -477,10 +588,21 @@ export default function Inventory() {
                      </span>
                   </td>
                   <td className="px-10 py-5 text-right font-bold text-slate-900 tracking-tight font-mono text-base">
-                    ${(Number(p.price) || 0).toFixed(2)}
+                    {p.type === 'supply' ? (
+                      <span className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-lg">Internal</span>
+                    ) : (
+                      `₱${(Number(p.price) || 0).toFixed(2)}`
+                    )}
                   </td>
                   <td className="px-10 py-5 text-right">
-                    <div className="flex items-center justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-300">
+                      <button 
+                        onClick={() => openAdjustment(p)} 
+                        className="p-3 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                        title="Adjust Stock"
+                      >
+                        <ArrowRightLeft className="w-4 h-4" />
+                      </button>
                       <button 
                         onClick={() => openHistory(p)} 
                         className="p-3 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"
@@ -491,16 +613,21 @@ export default function Inventory() {
                       <button 
                         onClick={() => openEdit(p)} 
                         className="p-3 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"
+                        title="Edit Product"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       {deleteId === p.id ? (
-                        <div className="flex items-center bg-rose-50 rounded-xl overflow-hidden border border-rose-100 ml-2">
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="flex items-center bg-rose-50 rounded-xl overflow-hidden border border-rose-100 ml-2"
+                        >
                           <button 
                             onClick={() => deleteProduct(p.id)}
                             className="px-3 py-2 text-[8px] font-bold uppercase text-rose-600 hover:bg-rose-100 transition-all"
                           >
-                            Confirm Delete
+                            Confirm
                           </button>
                           <button 
                             onClick={() => setDeleteId(null)}
@@ -508,11 +635,12 @@ export default function Inventory() {
                           >
                             <X className="w-3 h-3" />
                           </button>
-                        </div>
+                        </motion.div>
                       ) : (
                         <button 
                           onClick={() => setDeleteId(p.id)} 
                           className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                          title="Delete Product"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -571,19 +699,21 @@ export default function Inventory() {
                     />
                     {formErrors.name && <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest px-1">{formErrors.name}</p>}
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Price ($)</label>
+                  <div className={`space-y-2 transition-all ${formData.type === 'supply' ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Price (₱)</label>
                     <input 
-                      required
+                      required={formData.type === 'product'}
                       type="number" step="0.01"
+                      placeholder={formData.type === 'supply' ? 'Internal Item' : '0.00'}
                       className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 font-medium ${formErrors.price ? 'border-red-500' : 'border-gray-100'}`}
-                      value={isNaN(formData.price) ? "" : formData.price}
+                      value={formData.type === 'supply' ? "" : (isNaN(formData.price || 0) ? "" : formData.price)}
                       onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         setFormData({ ...formData, price: isNaN(val) ? 0 : val });
                       }}
                     />
                     {formErrors.price && <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest px-1">{formErrors.price}</p>}
+                    {formData.type === 'supply' && <p className="text-[9px] text-slate-400 italic px-1">Internal supplies have no customer price</p>}
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Initial Stock</label>
@@ -628,6 +758,68 @@ export default function Inventory() {
                       {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
+
+                  {formData.type === 'product' && (
+                    <div className="md:col-span-2 space-y-4 pt-4 border-t border-slate-50">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recipe / Composition (Required Supplies)</label>
+                        <button 
+                          type="button"
+                          onClick={() => setSelectedIngredients([...selectedIngredients, { ingredientId: '', quantity: 1 }])}
+                          className="text-[9px] font-bold text-pink-600 uppercase tracking-widest flex items-center gap-2 hover:bg-pink-50 px-3 py-1.5 rounded-lg transition-all"
+                        >
+                          <Plus className="w-3 h-3" /> Add Ingredient
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {selectedIngredients.length === 0 ? (
+                          <div className="py-8 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-100">
+                             <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">No ingredients linked to this product</p>
+                          </div>
+                        ) : (
+                          selectedIngredients.map((ing, idx) => (
+                            <div key={idx} className="flex gap-3 items-center">
+                              <select 
+                                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-pink-500/10"
+                                value={ing.ingredientId}
+                                onChange={(e) => {
+                                  const newList = [...selectedIngredients];
+                                  newList[idx].ingredientId = e.target.value;
+                                  setSelectedIngredients(newList);
+                                }}
+                              >
+                                <option value="">Pick a Supply Item</option>
+                                {products.filter(p => p.type === 'supply').map(s => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                              </select>
+                              <input 
+                                type="number"
+                                placeholder="Qty"
+                                className="w-20 px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-pink-500/10"
+                                value={ing.quantity}
+                                onChange={(e) => {
+                                  const newList = [...selectedIngredients];
+                                  newList[idx].quantity = parseFloat(e.target.value) || 0;
+                                  setSelectedIngredients(newList);
+                                }}
+                              />
+                              <button 
+                                type="button"
+                                onClick={() => setSelectedIngredients(selectedIngredients.filter((_, i) => i !== idx))}
+                                className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                        {ingredientsLoading && <p className="text-[10px] text-pink-500 animate-pulse font-bold text-center">Loading linked info...</p>}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="md:col-span-2 space-y-6">
                     <div className="flex flex-col items-center gap-6">
                       <div className="w-48 h-48 bg-[#FAF9F6] rounded-[2.5rem] border-2 border-dashed border-pink-100 flex items-center justify-center overflow-hidden relative group shadow-inner">
@@ -756,7 +948,7 @@ export default function Inventory() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => deleteCategory(cat.id)}
+                          onClick={() => setCategoryToDelete(cat)}
                           className="p-2 text-slate-400 hover:text-rose-500 hover:bg-white rounded-lg transition-all"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -766,6 +958,48 @@ export default function Inventory() {
                   ))
                 )}
               </div>
+
+              <AnimatePresence>
+                {categoryToDelete && (
+                  <motion.div 
+                    initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+                    animate={{ opacity: 1, backdropFilter: 'blur(4px)' }}
+                    exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+                    className="absolute inset-0 z-20 bg-white/80 flex items-center justify-center p-8"
+                  >
+                    <motion.div 
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      className="bg-white border border-rose-100 p-8 rounded-[2rem] shadow-2xl text-center max-w-xs"
+                    >
+                      <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                        <Trash2 className="w-8 h-8 text-rose-500" />
+                      </div>
+                      <h4 className="text-lg font-bold text-slate-900 uppercase tracking-tighter mb-2">Delete Category?</h4>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest leading-relaxed mb-8">
+                        Warning: Deleting "<span className="text-slate-900 font-bold">{categoryToDelete.name}</span>" will unassign it from any associated products. This action is permanent.
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                          onClick={() => deleteCategory(categoryToDelete.id)}
+                          disabled={isDeletingCategory}
+                          className="w-full py-4 bg-rose-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-rose-500 shadow-lg shadow-rose-200 transition-all disabled:opacity-50"
+                        >
+                          {isDeletingCategory ? 'Deleting...' : 'Yes, Delete Category'}
+                        </button>
+                        <button 
+                          onClick={() => setCategoryToDelete(null)}
+                          disabled={isDeletingCategory}
+                          className="w-full py-4 bg-slate-50 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           </div>
         )}
@@ -943,6 +1177,83 @@ export default function Inventory() {
                   </div>
                 )}
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Stock Adjustment Modal */}
+      <AnimatePresence>
+        {adjustmentModalOpen && adjustingProduct && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAdjustmentModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
+              <form onSubmit={handleAdjustStock} className="p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 uppercase tracking-tight">Stock Adjustment</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{adjustingProduct.name}</p>
+                  </div>
+                  <button type="button" onClick={() => setAdjustmentModalOpen(false)} className="text-gray-400 hover:text-black">
+                     <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['add', 'remove', 'set'] as const).map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setAdjustmentType(type)}
+                        className={`py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${adjustmentType === type ? 'bg-pink-600 text-white border-pink-600 shadow-lg shadow-pink-200' : 'bg-slate-50 text-slate-400 border-slate-100'}`}
+                      >
+                        {type === 'add' ? 'Increase' : type === 'remove' ? 'Decrease' : 'Set Exact'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-100 p-6 rounded-2xl text-center">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Current Inventory</p>
+                    <p className="text-4xl font-mono font-bold text-slate-900 tracking-tighter">{adjustingProduct.stock}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                      {adjustmentType === 'add' ? 'Amount to Add' : adjustmentType === 'remove' ? 'Amount to Subtract' : 'New Total Stock'}
+                    </label>
+                    <input 
+                      required
+                      type="number"
+                      min={adjustmentType === 'remove' ? 0 : 0}
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-pink-500/5 focus:bg-white transition-all text-xl font-bold text-center"
+                      value={adjustmentValue === 0 ? '' : adjustmentValue}
+                      onChange={(e) => setAdjustmentValue(parseInt(e.target.value) || 0)}
+                      placeholder="0"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-pink-50 rounded-2xl border border-pink-100">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Projected Stock:</span>
+                    <span className="text-lg font-mono font-bold text-pink-600">
+                      {adjustmentType === 'add' ? Number(adjustingProduct.stock) + Number(adjustmentValue) : 
+                       adjustmentType === 'remove' ? Number(adjustingProduct.stock) - Number(adjustmentValue) : 
+                       Number(adjustmentValue)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-10">
+                  <button 
+                    type="submit" 
+                    disabled={uploading}
+                    className="w-full py-5 bg-pink-600 text-white rounded-[1.5rem] font-bold text-xs uppercase tracking-[0.2em] shadow-2xl shadow-pink-200 hover:bg-pink-500 transition-all disabled:opacity-50"
+                  >
+                    {uploading ? 'Processing Transaction...' : 'Confirm Adjustment'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

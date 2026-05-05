@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Unlock, Lock, DollarSign, Calculator, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Clock, Unlock, Lock, PhilippinePeso, Calculator, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import api from '../../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { z } from 'zod';
@@ -76,7 +76,7 @@ export default function Shifts() {
         closing_cash: val, 
         shift_id: currentShift.id 
       });
-      alert(`Shift closed. Expected: $${res.data.expected}, Variance: $${res.data.variance}`);
+      alert(`Shift closed. Expected: ₱${res.data.expected}, Variance: ₱${res.data.variance}`);
       setCurrentShift(null);
       setClosingCash('');
       setOpeningBalance('');
@@ -107,23 +107,66 @@ export default function Shifts() {
             )}
             <div className="space-y-6 text-left">
               <div className="space-y-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Store Code</label>
+                <div className="flex justify-between items-center px-4">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Store Code</label>
+                  {shiftCode && (shiftCode.length < 4 || shiftCode.length > 8) && (
+                    <span className="text-[9px] font-bold text-rose-500 uppercase tracking-tighter">4-8 digits required</span>
+                  )}
+                </div>
                 <div className="relative group">
-                  <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
+                  <Lock className={`absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 transition-all duration-300 ${
+                    shiftCode && (shiftCode.length < 4 || shiftCode.length > 8) 
+                      ? 'text-rose-500' 
+                      : shiftCode.length >= 4 
+                        ? 'text-emerald-500' 
+                        : 'text-slate-300 group-focus-within:text-pink-500'
+                  }`} />
                   <input 
                     type="password"
-                    placeholder="Enter Store Pin / Code"
-                    className="w-full pl-16 pr-8 py-6 bg-[#FAF9F6] border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-pink-500/5 text-slate-900 font-bold text-lg focus:bg-white transition-all shadow-inner tracking-widest"
+                    placeholder="Enter 4-8 Digit Store Pin"
+                    className={`w-full pl-16 pr-8 py-6 bg-[#FAF9F6] border rounded-3xl focus:outline-none focus:ring-4 transition-all shadow-inner tracking-widest text-lg font-bold ${
+                      shiftCode && (shiftCode.length < 4 || shiftCode.length > 8)
+                        ? 'border-rose-200 focus:ring-rose-500/5 focus:bg-white text-rose-600'
+                        : shiftCode.length >= 4
+                          ? 'border-emerald-200 focus:ring-emerald-500/5 focus:bg-white text-emerald-600'
+                          : 'border-slate-100 focus:ring-pink-500/5 focus:bg-white text-slate-900'
+                    }`}
                     value={shiftCode}
-                    onChange={(e) => setShiftCode(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      if (val.length <= 12) setShiftCode(val);
+                    }}
                   />
                 </div>
+                <div className="flex gap-1.5 mt-2 px-2">
+                  {[...Array(8)].map((_, i) => (
+                    <div 
+                      key={i}
+                      className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+                        i < shiftCode.length 
+                          ? (shiftCode.length < 4 || shiftCode.length > 8 ? 'bg-rose-400' : 'bg-emerald-400')
+                          : 'bg-slate-100'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className={`text-[9px] font-bold uppercase tracking-widest mt-2 px-2 transition-colors ${
+                  shiftCode && (shiftCode.length < 4 || shiftCode.length > 8) ? 'text-rose-500' : 'text-slate-400'
+                }`}>
+                  {shiftCode.length === 0 
+                    ? 'Security pin required to open session' 
+                    : shiftCode.length < 4 
+                      ? `Security gap: ${4 - shiftCode.length} more digits needed` 
+                      : shiftCode.length > 8 
+                        ? 'Concentration limit exceeded (Max 8)' 
+                        : 'Security protocol satisfied'}
+                </p>
               </div>
 
               <div className="space-y-3">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Opening Amount</label>
                 <div className="relative group">
-                  <DollarSign className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
+                  <PhilippinePeso className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
                   <input 
                     type="number"
                     placeholder="0.00"
@@ -166,7 +209,7 @@ export default function Shifts() {
                 <div className="space-y-4">
                     <div className="flex justify-between items-center p-6 bg-[#FAF9F6] rounded-2xl border border-slate-100">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Opening Amount</span>
-                        <span className="text-lg font-bold text-slate-900 tracking-widest font-mono">${(Number(currentShift.openingBalance) || 0).toFixed(2)}</span>
+                        <span className="text-lg font-bold text-slate-900 tracking-widest font-mono">₱{(Number(currentShift.openingBalance) || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between p-6 bg-emerald-50 border border-emerald-100 rounded-2xl">
                         <div className="flex items-center gap-3">
@@ -206,7 +249,7 @@ export default function Shifts() {
                         whileTap={{ scale: 0.98 }}
                         onClick={handleCloseShift}
                         disabled={!closingCash}
-                        className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-bold text-[10px] uppercase tracking-[0.2em] transition-all shadow-2xl shadow-slate-200 hover:bg-slate-800 active:scale-95 disabled:bg-slate-100 disabled:text-slate-300 disabled:shadow-none"
+                        className="w-full py-5 bg-pink-600 text-white rounded-[1.5rem] font-bold text-[10px] uppercase tracking-[0.2em] transition-all shadow-2xl shadow-pink-200 hover:bg-pink-500 active:scale-95 disabled:bg-slate-100 disabled:text-slate-300 disabled:shadow-none"
                     >
                         End Shift
                     </motion.button>

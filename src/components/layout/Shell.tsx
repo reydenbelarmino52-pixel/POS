@@ -124,8 +124,8 @@ export default function Shell({ children }: ShellProps) {
       <aside className="hidden md:flex flex-col w-72 backdrop-blur-3xl bg-white/80 border-r border-[#E5E7EB] sticky top-0 h-screen z-20 print:hidden shadow-[4px_0_24px_rgba(0,0,0,0.01)]">
         <div className="p-10 pb-6">
           <h1 className="text-3xl font-display font-medium tracking-tighter text-slate-900 flex items-center gap-3 uppercase">
-            <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200 overflow-hidden relative group/logo">
-              <div className="absolute inset-0 bg-pink-600 translate-y-full group-hover/logo:translate-y-0 transition-transform duration-500"></div>
+            <div className="w-10 h-10 bg-pink-600 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200 overflow-hidden relative group/logo">
+              <div className="absolute inset-0 bg-slate-900 translate-y-full group-hover/logo:translate-y-0 transition-transform duration-500"></div>
               <span className="text-white font-bold text-sm relative z-10">CT</span>
             </div>
             <span className="leading-none">{currentStore?.name?.split(' ')[0] || 'Cathtea'}</span>
@@ -159,7 +159,7 @@ export default function Shell({ children }: ShellProps) {
               className={({ isActive }) => `
                 flex items-center gap-4 px-5 py-4 rounded-2xl text-[12px] font-bold transition-all duration-300 group relative overflow-hidden
                 ${isActive 
-                  ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' 
+                  ? 'bg-pink-600 text-white shadow-xl shadow-pink-200' 
                   : 'text-slate-500 hover:bg-pink-50/50 hover:text-slate-900'
                 }
               `}
@@ -183,12 +183,12 @@ export default function Shell({ children }: ShellProps) {
         <div className="p-8 mt-auto">
           <div className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2.5rem] relative overflow-hidden group/profile">
             <div className="flex items-center gap-4 mb-6 relative z-10">
-              <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-sm font-bold text-white shadow-lg uppercase group-hover/profile:bg-pink-600 transition-colors duration-500">
-                {user?.username[0]}
+              <div className="w-12 h-12 rounded-2xl bg-pink-600 flex items-center justify-center text-sm font-bold text-white shadow-lg uppercase group-hover/profile:bg-pink-500 transition-colors duration-500">
+                {user?.username?.[0] || '?'}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-slate-900 truncate uppercase tracking-tighter">{user?.username}</p>
-                <p className="micro-label !text-pink-500 opacity-80 mt-0.5">{user?.role}</p>
+                <p className="text-sm font-bold text-slate-900 truncate uppercase tracking-tighter">{user?.username || 'Operator'}</p>
+                <p className="micro-label !text-pink-500 opacity-80 mt-0.5">{user?.role || 'Staff'}</p>
               </div>
             </div>
             <button 
@@ -228,7 +228,7 @@ export default function Shell({ children }: ShellProps) {
              {/* AI Tools shortcut */}
               <button 
                onClick={() => navigate('/ai-assistant')}
-               className="hidden sm:flex items-center gap-3 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg group"
+               className="hidden sm:flex items-center gap-3 px-6 py-3 bg-pink-600 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-pink-500 transition-all shadow-lg group"
              >
                <div className="w-1.5 h-1.5 bg-pink-500 rounded-full group-hover:scale-150 transition-transform shadow-[0_0_8px_rgba(236,72,153,1)]"></div>
                Shortcut AI Vault
@@ -291,14 +291,14 @@ export default function Shell({ children }: ShellProps) {
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              className="fixed inset-y-0 left-0 w-72 backdrop-blur-3xl bg-slate-900 border-r border-white/10 z-50 md:hidden p-6 flex flex-col"
+              className="fixed inset-y-0 left-0 w-72 backdrop-blur-3xl bg-white border-r border-pink-100 z-50 md:hidden p-6 flex flex-col"
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-pink-500 rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-pink-600 rounded-xl flex items-center justify-center">
                     <span className="text-white font-bold text-sm">CT</span>
                   </div>
-                  <h1 className="text-xl font-bold tracking-tight text-white uppercase">Cathtea</h1>
+                  <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase">Cathtea</h1>
                 </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-400">
                   <X className="w-6 h-6" />
@@ -313,12 +313,12 @@ export default function Shell({ children }: ShellProps) {
                     className={({ isActive }) => `
                       flex items-center gap-3 px-4 py-3 rounded-xl text-base font-semibold transition-all
                       ${isActive 
-                        ? 'bg-white/10 text-white shadow-lg shadow-indigo-500/10' 
-                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                        ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' 
+                        : 'text-slate-500 hover:bg-pink-50/5 hover:text-slate-900'
                       }
                     `}
                   >
-                    <item.icon className="w-5 h-5" />
+                    <item.icon className="w-5 h-5 transition-transform group-hover:scale-110" />
                     {item.name}
                   </NavLink>
                 ))}

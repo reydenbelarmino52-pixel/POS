@@ -66,21 +66,56 @@ export default function CreateStore() {
           </div>
 
           <div className="space-y-3">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Shift Security Pin (4-8 digits)</label>
-            <input 
-              type="text"
-              required
-              placeholder="e.g. 1234"
-              className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-mono text-sm placeholder:text-slate-300 placeholder:font-normal tracking-widest"
-              value={shiftPin}
-              onChange={(e) => setShiftPin(e.target.value)}
-            />
-            <p className="text-[9px] text-slate-400 font-medium uppercase px-2">This code is required by cashiers to open their shifts.</p>
+            <div className="flex justify-between items-center px-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Shift Security Pin (4-8 digits)</label>
+            </div>
+            <div className="relative group">
+              <input 
+                type="text"
+                required
+                placeholder="e.g. 1234"
+                className={`w-full px-6 py-5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-slate-900 font-mono text-sm placeholder:text-slate-300 placeholder:font-normal tracking-widest ${
+                  shiftPin && (shiftPin.length < 4 || shiftPin.length > 8) 
+                    ? 'border-rose-200 focus:ring-rose-500/50 text-rose-600' 
+                    : shiftPin.length >= 4
+                      ? 'border-emerald-200 focus:ring-emerald-500/50 text-emerald-600'
+                      : 'border-slate-100 focus:ring-pink-500/50 focus:bg-white'
+                }`}
+                value={shiftPin}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (val.length <= 12) setShiftPin(val);
+                }}
+              />
+            </div>
+            <div className="flex gap-1.5 mt-2 px-2">
+              {[...Array(8)].map((_, i) => (
+                <div 
+                  key={i}
+                  className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+                    i < shiftPin.length 
+                      ? (shiftPin.length < 4 || shiftPin.length > 8 ? 'bg-rose-400' : 'bg-emerald-400')
+                      : 'bg-slate-100'
+                  }`}
+                />
+              ))}
+            </div>
+            <p className={`text-[9px] font-bold uppercase tracking-widest mt-2 px-2 transition-colors ${
+              shiftPin && (shiftPin.length < 4 || shiftPin.length > 8) ? 'text-rose-500' : 'text-slate-400'
+            }`}>
+              {shiftPin.length === 0 
+                ? 'Store access code required' 
+                : shiftPin.length < 4 
+                  ? `Need ${4 - shiftPin.length} more digits` 
+                  : shiftPin.length > 8 
+                    ? 'Maximum limit: 8 digits' 
+                    : 'Security code valid'}
+            </p>
           </div>
 
           <button 
             type="submit"
-            disabled={loading || !name.trim() || !shiftPin.trim()}
+            disabled={loading || !name.trim() || shiftPin.length < 4 || shiftPin.length > 8}
             className="w-full py-5 bg-pink-500 text-white rounded-2xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-pink-400 disabled:bg-slate-100 disabled:text-slate-300 transition-all shadow-xl shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 mt-4"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingBag className="w-5 h-5" />}

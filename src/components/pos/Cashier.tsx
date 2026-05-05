@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote, User, Receipt, XCircle, ShoppingCart, Package, ArrowRight } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, User, Receipt, XCircle, ShoppingCart, Package, ArrowRight, Clock } from 'lucide-react';
 import { usePOS, Product } from '../../hooks/usePOS';
 import api from '../../lib/api';
 import { supabase } from '../../lib/supabase';
@@ -18,11 +18,31 @@ export default function Cashier() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [isProcessing, setIsProcessing] = useState(false);
   const [amountReceived, setAmountReceived] = useState<string>('');
+  
+  // Customization State
+  const [customizingProduct, setCustomizingProduct] = useState<Product | null>(null);
+  const [selectedSugar, setSelectedSugar] = useState<number>(100);
+  const [selectedIce, setSelectedIce] = useState<string>('Normal');
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
 
   const { 
     cart, addToCart, removeFromCart, updateQuantity, 
-    clearCart, subtotal, tax, total, discount 
+    clearCart, subtotal, tax, total, scDiscount, vatExemptSales,
+    isSeniorCitizen, setIsSeniorCitizen 
   } = usePOS();
+
+  const addonsList = [
+    { name: 'Nata de Coco', price: 15 },
+    { name: 'Pearls', price: 15 },
+    { name: 'Pudding', price: 20 },
+    { name: 'Crystal Boba', price: 20 }
+  ];
+
+  const toggleAddon = (addonName: string) => {
+    setSelectedAddons(prev => 
+      prev.includes(addonName) ? prev.filter(a => a !== addonName) : [...prev, addonName]
+    );
+  };
 
   const changeAmount = useMemo(() => {
     const received = parseFloat(amountReceived) || 0;
@@ -82,12 +102,12 @@ export default function Cashier() {
     }
   };
 
-  const fetchCurrentShift = async () => {
+  const fetchCurrentShift = async (retryAutoOpen = true) => {
     try {
       const res = await api.get('/shifts/current');
       if (res.data) {
         setCurrentShift(res.data);
-      } else {
+      } else if (retryAutoOpen) {
         // Automatically open a shift with 0 balance for quick entry
         try {
           const openRes = await api.post('/shifts/open', { 
@@ -98,13 +118,14 @@ export default function Cashier() {
         } catch (openErr: any) {
           const errorMsg = openErr.response?.data?.error || openErr.message;
           console.error('Failed to auto-open shift', errorMsg);
-          // Only alert if it's not a "Shift already active" error which we can recover from
-          if (openErr.response?.status !== 400) {
+          
+          if (openErr.response?.status === 400 && errorMsg.includes('already active')) {
+             // If it's 400 and active, try fetching one last time without retrying open
+             fetchCurrentShift(false);
+          } else if (openErr.response?.status !== 401) {
              alert(`Auto-opening shift failed: ${errorMsg}`);
-          } else {
-             // If it's 400, maybe it's already active, try fetching again
-             fetchCurrentShift();
           }
+          // If 401 (Invalid pin), we let it stay null so they see the "Go to Shift Management" screen
         }
       }
     } catch (err) {
@@ -149,10 +170,13 @@ export default function Cashier() {
         items: cart.map(item => ({
           id: item.id,
           quantity: item.quantity,
-          price: item.price
+          price: item.price,
+          sugarLevel: item.sugarLevel,
+          iceLevel: item.iceLevel,
+          addons: item.addons
         })),
         total,
-        discount,
+        discount: scDiscount,
         tax,
         payment_method: paymentMethod,
         shift_id: currentShift.id,
@@ -167,7 +191,9 @@ export default function Cashier() {
         total,
         subtotal,
         tax,
-        discount,
+        vatExemptSales,
+        scDiscount,
+        isSeniorCitizen,
         paymentMethod,
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountReceived) || total : total,
         changeAmount: paymentMethod === 'cash' ? changeAmount : 0,
@@ -184,6 +210,20 @@ export default function Cashier() {
       alert("Checkout failed.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleAddToCartClick = (p: Product) => {
+    setCustomizingProduct(p);
+    setSelectedSugar(100);
+    setSelectedIce('Normal');
+    setSelectedAddons([]);
+  };
+
+  const confirmAddToCart = () => {
+    if (customizingProduct) {
+      addToCart(customizingProduct, selectedSugar, selectedIce, selectedAddons);
+      setCustomizingProduct(null);
     }
   };
 
@@ -273,7 +313,7 @@ export default function Cashier() {
                   }}
                   key={p.id}
                   disabled={p.stock <= 0}
-                  onClick={() => addToCart(p)}
+                  onClick={() => handleAddToCartClick(p)}
                   className={`group relative flex flex-col bg-white p-4 rounded-[2rem] border border-pink-50 transition-all duration-300 text-left overflow-hidden shadow-sm
                     ${p.stock <= 0 ? 'opacity-30 cursor-not-allowed grayscale' : 'hover:-translate-y-1 hover:shadow-xl hover:shadow-pink-400/5 hover:border-pink-200'}`}
                 >
@@ -286,6 +326,9 @@ export default function Cashier() {
                     ) : (
                         <Package className="w-10 h-10 text-slate-200 group-hover:text-pink-500 transition-all duration-500 transform group-hover:rotate-12" />
                     )}
+                    {p.stock <= 5 && p.stock > 0 && (
+                      <div className="absolute top-4 right-4 bg-rose-500/90 text-white text-[8px] font-black uppercase tracking-tighter px-2 py-1 rounded-lg backdrop-blur-md shadow-lg">Low Stock</div>
+                    )}
                   </div>
                   
                   <div className="px-1">
@@ -293,7 +336,7 @@ export default function Cashier() {
                     <p className="micro-label !text-[8px] mb-4 opacity-50">{p.categoryName || 'Generic'}</p>
                     
                     <div className="flex items-center justify-between border-t border-slate-50 pt-3 mt-auto">
-                      <span className="text-base font-bold text-slate-900 tracking-tighter font-mono">${(Number(p.price) || 0).toFixed(2)}</span>
+                      <span className="text-base font-bold text-slate-900 tracking-tighter font-mono">₱{(Number(p.price) || 0).toFixed(2)}</span>
                       <div className="flex items-center gap-1.5">
                         <div className={`w-1 h-1 rounded-full ${p.stock > 5 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`}></div>
                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{p.stock} AV</span>
@@ -348,7 +391,7 @@ export default function Cashier() {
                   initial={{ opacity: 0, x: 20, scale: 0.95 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: -20, scale: 0.95 }}
-                  key={item.id} 
+                  key={`${item.id}-${item.sugarLevel}`} 
                   className="flex items-center gap-4 bg-white p-4 rounded-3xl border border-pink-50/50 group relative overflow-hidden backdrop-blur-md hover:bg-pink-50/50 transition-all duration-300 shadow-sm"
                 >
                   <div className="w-14 h-14 bg-pink-50 rounded-2xl flex-shrink-0 relative overflow-hidden flex items-center justify-center border border-pink-100">
@@ -360,12 +403,27 @@ export default function Cashier() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-900 truncate tracking-tight">{item.name}</p>
-                    <p className="text-[10px] text-slate-500 font-mono tracking-tighter mt-0.5">${(Number(item.price) || 0).toFixed(2)}</p>
+                    <div className="flex flex-col gap-0.5 mt-0.5">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] text-slate-500 font-mono tracking-tighter">₱{(Number(item.price) || 0).toFixed(2)}</p>
+                        {item.sugarLevel !== undefined && (
+                          <span className="text-[8px] font-bold text-slate-400 uppercase">{item.sugarLevel}% Sug</span>
+                        )}
+                        {item.iceLevel && (
+                          <span className="text-[8px] font-bold text-slate-400 uppercase">{item.iceLevel} Ice</span>
+                        )}
+                      </div>
+                      {item.addons && item.addons.length > 0 && (
+                        <p className="text-[8px] font-bold text-pink-500 uppercase truncate">
+                          + {item.addons.join(', ')}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center bg-white/50 rounded-xl border border-pink-100 p-1">
-                    <button onClick={() => updateQuantity(item.id, -1)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
+                    <button onClick={() => updateQuantity(item.id, -1, item.sugarLevel, item.iceLevel, item.addons)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
                     <span className="text-xs font-bold w-7 text-center text-slate-700 font-mono">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.id, 1)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
+                    <button onClick={() => updateQuantity(item.id, 1, item.sugarLevel, item.iceLevel, item.addons)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
                   </div>
                 </motion.div>
               ))}
@@ -375,22 +433,60 @@ export default function Cashier() {
 
         <div className="p-6 lg:p-10 backdrop-blur-3xl bg-pink-50 border-t border-pink-100 shrink-0 space-y-6 lg:space-y-8 relative z-10 shadow-[0_-20px_50px_rgba(0,0,0,0.02)]">
           <div className="space-y-3 lg:space-y-4">
+            <div className="flex items-center justify-between p-3 bg-white border border-pink-100 rounded-2xl shadow-sm mb-4">
+               <div className="flex items-center gap-2">
+                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isSeniorCitizen ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'bg-slate-50 text-slate-400'}`}>
+                    <User className="w-4 h-4" />
+                 </div>
+                 <div>
+                    <p className="text-[9px] font-bold text-slate-700 uppercase tracking-widest leading-none">Senior Citizen / PWD</p>
+                    <p className="text-[7px] text-slate-400 uppercase mt-0.5 leading-none">Apply 20% + VAT Exempt</p>
+                 </div>
+               </div>
+               <button 
+                 onClick={() => setIsSeniorCitizen(!isSeniorCitizen)}
+                 className={`w-10 h-5 rounded-full border transition-all p-0.5 relative
+                    ${isSeniorCitizen ? 'border-pink-600 bg-pink-50' : 'border-slate-200 bg-slate-100'}
+                 `}
+               >
+                 <motion.div 
+                    animate={{ x: isSeniorCitizen ? 20 : 0 }}
+                    className={`w-3.5 h-3.5 rounded-full ${isSeniorCitizen ? 'bg-pink-600 shadow-md' : 'bg-white'}`}
+                 />
+               </button>
+            </div>
+
             <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
               <span>Subtotal</span>
-              <span className="text-slate-600 font-mono tracking-widest">${(Number(subtotal) || 0).toFixed(2)}</span>
+              <span className="text-slate-600 font-mono tracking-widest">₱{(Number(subtotal) || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-              <span>Tax (12%)</span>
-              <span className="text-slate-600 font-mono tracking-widest">${(Number(tax) || 0).toFixed(2)}</span>
-            </div>
+            {isSeniorCitizen && (
+              <>
+                <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-pink-500">
+                  <span>VAT Exempt Deduction</span>
+                  <span className="font-mono tracking-widest">-₱{(Number(subtotal - vatExemptSales) || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-500">
+                  <span>SC Discount (20%)</span>
+                  <span className="font-mono tracking-widest">-₱{(Number(scDiscount) || 0).toFixed(2)}</span>
+                </div>
+              </>
+            )}
+            {!isSeniorCitizen && (
+              <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                <span>Tax (12%)</span>
+                <span className="text-slate-600 font-mono tracking-widest">₱{(Number(tax) || 0).toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-4 lg:pt-8 border-t border-pink-100">
               <span className="text-base lg:text-lg font-bold text-slate-900 tracking-tight uppercase">Total Amount</span>
               <div className="text-right">
-                <span className="text-3xl lg:text-4xl font-bold text-pink-600 tracking-widest font-mono">${(Number(total) || 0).toFixed(2)}</span>
+                <span className="text-3xl lg:text-4xl font-bold text-pink-600 tracking-widest font-mono">₱{(Number(total) || 0).toFixed(2)}</span>
                 <p className="text-[8px] lg:text-[9px] text-pink-500 font-bold uppercase tracking-widest mt-1">Order Summary</p>
               </div>
             </div>
           </div>
+          
           <div className="flex gap-4">
              <button 
                onClick={() => setIsMobileCartOpen(false)}
@@ -420,23 +516,139 @@ export default function Cashier() {
       `}>
         <button 
            onClick={() => setIsMobileCartOpen(true)}
-           className="w-full bg-slate-900 text-white p-5 rounded-3xl shadow-2xl flex items-center justify-between border border-white/10 backdrop-blur-xl"
+           className="w-full bg-white text-slate-900 p-4 rounded-3xl shadow-xl flex items-center justify-between border border-pink-100 backdrop-blur-xl"
         >
-          <div className="flex items-center gap-4">
-             <div className="p-2 bg-pink-500 rounded-xl">
+          <div className="flex items-center gap-3">
+             <div className="p-2 bg-pink-600 rounded-xl text-white">
                 <ShoppingCart className="w-5 h-5" />
              </div>
              <div className="text-left">
-                <p className="text-[10px] font-bold uppercase text-pink-500 tracking-widest">Active Cart</p>
+                <p className="text-[10px] font-bold uppercase text-pink-500 tracking-widest">Active Order</p>
                 <p className="text-sm font-bold tracking-tight">{cart.length} Items</p>
              </div>
           </div>
           <div className="text-right">
-             <p className="text-xl font-bold font-mono tracking-tighter">${(Number(total) || 0).toFixed(2)}</p>
-             <p className="text-[8px] font-bold opacity-50 uppercase tracking-widest">Tap to Review</p>
+             <p className="text-xl font-bold font-mono tracking-tighter text-pink-600">₱{(Number(total) || 0).toFixed(2)}</p>
+             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Review Cart</p>
           </div>
         </button>
       </div>
+
+      {/* Customization Modal */}
+      <AnimatePresence>
+        {customizingProduct && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <motion.div 
+               initial={{ opacity: 0 }} 
+               animate={{ opacity: 1 }} 
+               exit={{ opacity: 0 }}
+               onClick={() => setCustomizingProduct(null)}
+               className="absolute inset-0 bg-white/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 30 }}
+              className="relative w-full max-w-sm bg-white border border-pink-100 rounded-[3rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8">
+                <div className="text-center mb-6">
+                   <div className="w-20 h-20 bg-[#FAF9F6] rounded-[2.5rem] flex items-center justify-center mx-auto mb-4 border border-black/5 shadow-inner">
+                     {customizingProduct.imageUrl ? (
+                       <img src={customizingProduct.imageUrl} alt="" className="w-full h-full object-cover rounded-[2.5rem]" referrerPolicy="no-referrer" />
+                      ) : (
+                       <Package className="w-8 h-8 text-pink-200" />
+                      )}
+                   </div>
+                   <h3 className="text-xl font-bold text-slate-900 tracking-tight">{customizingProduct.name}</h3>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Select Preferences</p>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sugar Level</p>
+                      <span className="text-sm font-bold text-pink-600 font-mono">{selectedSugar}%</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2">
+                       {[0, 25, 50, 100].map((level) => (
+                         <button 
+                           key={level}
+                           onClick={() => setSelectedSugar(level)}
+                           className={`py-3 rounded-xl text-[10px] font-bold transition-all border
+                              ${selectedSugar === level 
+                                ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
+                                : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
+                           `}
+                         >
+                           {level}
+                         </button>
+                       ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Ice Level</p>
+                    <div className="grid grid-cols-4 gap-2">
+                       {['Normal', 'Less', 'No Ice', 'More'].map((level) => (
+                         <button 
+                           key={level}
+                           onClick={() => setSelectedIce(level)}
+                           className={`py-2 rounded-xl text-[9px] font-bold transition-all border
+                              ${selectedIce === level 
+                                ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
+                                : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
+                           `}
+                         >
+                           {level}
+                         </button>
+                       ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Add-ons</p>
+                    <div className="grid grid-cols-2 gap-2">
+                       {addonsList.map((addon) => (
+                         <button 
+                           key={addon.name}
+                           onClick={() => toggleAddon(addon.name)}
+                           className={`py-3 px-3 rounded-xl text-[10px] font-bold transition-all border text-left flex items-center justify-between
+                              ${selectedAddons.includes(addon.name)
+                                ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
+                                : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
+                           `}
+                         >
+                           <div className="flex flex-col">
+                             <span>{addon.name}</span>
+                             <span className={`text-[8px] ${selectedAddons.includes(addon.name) ? 'text-pink-100' : 'text-pink-500'}`}>+₱{addon.price}</span>
+                           </div>
+                           {selectedAddons.includes(addon.name) && <Plus className="w-3 h-3" />}
+                         </button>
+                       ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 space-y-3">
+                    <button 
+                      onClick={confirmAddToCart}
+                      className="w-full py-4 bg-pink-600 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-pink-500 shadow-lg shadow-pink-200 transition-all active:scale-95"
+                    >
+                      Add to Basket
+                    </button>
+                    <button 
+                      onClick={() => setCustomizingProduct(null)}
+                      className="w-full py-2 text-slate-400 font-bold uppercase tracking-widest text-[9px] hover:text-slate-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Payment Modal */}
       <AnimatePresence>
@@ -447,71 +659,68 @@ export default function Cashier() {
                animate={{ opacity: 1 }} 
                exit={{ opacity: 0 }}
                onClick={() => setPaymentModal(false)}
-               className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+               className="absolute inset-0 bg-white/80 backdrop-blur-md"
             />
             <motion.div 
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-[2rem] lg:rounded-[3rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden"
+              className="relative w-full max-w-md bg-white border border-pink-100 rounded-[3rem] shadow-2xl overflow-hidden"
             >
-              <div className="p-6 lg:p-10">
-                <div className="flex items-center justify-between mb-6 lg:mb-10">
-                  <h3 className="text-lg lg:text-xl font-bold text-slate-900 uppercase tracking-tight">Payment</h3>
-                  <button onClick={() => setPaymentModal(false)} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all">
+              <div className="p-8 lg:p-10">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-bold text-slate-900 uppercase tracking-tight">Checkout Terminal</h3>
+                  <button onClick={() => setPaymentModal(false)} className="text-slate-300 hover:text-rose-500 transition-colors">
                      <XCircle className="w-6 h-6" />
                   </button>
                 </div>
 
-                <div className="bg-slate-900 p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] mb-6 lg:mb-10 flex flex-col items-center relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 blur-[40px] pointer-events-none"></div>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.4em] mb-2 lg:mb-3">Amount Due</p>
-                  <p className="text-3xl lg:text-5xl font-bold text-white tracking-widest font-mono">
-                    <span className="text-pink-400 text-2xl lg:text-3xl mr-1">$</span>
+                <div className="bg-pink-50 p-8 rounded-[2rem] mb-10 flex flex-col items-center border border-pink-100 shadow-inner">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Total Due</p>
+                  <p className="text-5xl font-bold text-pink-600 tracking-tighter font-mono">
+                    <span className="text-2xl mr-1">₱</span>
                     {(Number(total) || 0).toFixed(2)}
                   </p>
                 </div>
 
-                <div className="space-y-4 lg:space-y-6">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Select Payment Method</p>
-                  <div className="grid grid-cols-2 gap-4 lg:gap-5">
+                <div className="space-y-6">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Payment Channel</p>
+                  <div className="grid grid-cols-2 gap-4">
                     <button 
                       onClick={() => setPaymentMethod('cash')}
-                      className={`flex flex-col items-center gap-3 lg:gap-4 p-4 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] border-2 transition-all duration-300
-                        ${paymentMethod === 'cash' ? 'border-pink-600 bg-pink-50 shadow-xl shadow-pink-500/10' : 'border-slate-100 hover:border-slate-200'}
+                      className={`flex flex-col items-center gap-3 p-6 rounded-3xl border-2 transition-all
+                        ${paymentMethod === 'cash' ? 'border-pink-600 bg-white shadow-lg shadow-pink-100' : 'border-slate-50 bg-slate-50 hover:border-pink-200'}
                       `}
                     >
-                      <div className={`p-2 lg:p-3 rounded-xl ${paymentMethod === 'cash' ? 'bg-pink-600/10 text-pink-600' : 'bg-slate-50 text-slate-400'}`}>
-                        <Banknote className="w-5 h-5 lg:w-6 lg:h-6" />
+                      <div className={`p-3 rounded-2xl ${paymentMethod === 'cash' ? 'bg-pink-600 text-white' : 'bg-white text-slate-300'}`}>
+                        <Banknote className="w-6 h-6" />
                       </div>
-                      <span className="font-bold text-[9px] lg:text-[10px] uppercase tracking-widest text-slate-900">Liquid Cash</span>
+                      <span className="font-bold text-[11px] uppercase tracking-widest text-slate-900">Cash</span>
                     </button>
                     <button 
                       onClick={() => setPaymentMethod('card')}
-                      className={`flex flex-col items-center gap-3 lg:gap-4 p-4 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] border-2 transition-all duration-300
-                        ${paymentMethod === 'card' ? 'border-pink-600 bg-pink-50 shadow-xl shadow-pink-500/10' : 'border-slate-100 hover:border-slate-200'}
+                      className={`flex flex-col items-center gap-3 p-6 rounded-3xl border-2 transition-all
+                        ${paymentMethod === 'card' ? 'border-pink-600 bg-white shadow-lg shadow-pink-100' : 'border-slate-50 bg-slate-50 hover:border-pink-200'}
                       `}
                     >
-                      <div className={`p-2 lg:p-3 rounded-xl ${paymentMethod === 'card' ? 'bg-pink-600/10 text-pink-600' : 'bg-slate-50 text-slate-400'}`}>
-                        <CreditCard className="w-5 h-5 lg:w-6 lg:h-6" />
+                      <div className={`p-3 rounded-2xl ${paymentMethod === 'card' ? 'bg-pink-600 text-white' : 'bg-white text-slate-300'}`}>
+                        <CreditCard className="w-6 h-6" />
                       </div>
-                      <span className="font-bold text-[9px] lg:text-[10px] uppercase tracking-widest text-slate-900">Encrypted Card</span>
+                      <span className="font-bold text-[11px] uppercase tracking-widest text-slate-900">Card</span>
                     </button>
                   </div>
                 </div>
 
                 {paymentMethod === 'cash' && (
                   <div className="mt-8 space-y-4">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Cash Intake</p>
-                    <div className="relative group/input">
-                      <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-slate-400 group-focus-within/input:text-pink-500 transition-colors">
-                        <span className="font-mono text-lg transition-all">$</span>
-                      </div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Amount Given</p>
+                    <div className="relative">
+                      <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xl">₱</span>
                       <input 
                         type="number"
                         placeholder="0.00"
                         step="0.01"
-                        className="w-full pl-12 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:outline-none focus:border-pink-500 focus:bg-white transition-all text-xl font-bold font-mono tracking-widest"
+                        className="w-full pl-14 pr-8 py-5 bg-white border-2 border-slate-100 rounded-2xl focus:outline-none focus:border-pink-600 transition-all text-2xl font-bold font-mono tracking-tighter"
                         value={amountReceived}
                         onChange={(e) => setAmountReceived(e.target.value)}
                         autoFocus
@@ -519,41 +728,35 @@ export default function Cashier() {
                     </div>
                     <div className="flex justify-between items-center px-2">
                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Change</span>
-                       <span className="text-xl font-bold text-pink-600 font-mono tracking-tighter">${(Number(changeAmount) || 0).toFixed(2)}</span>
+                       <span className="text-2xl font-bold text-emerald-500 font-mono">₱{(Number(changeAmount) || 0).toFixed(2)}</span>
                     </div>
                   </div>
                 )}
 
-                <div className="mt-8 lg:mt-12 space-y-3 lg:space-y-4">
+                <div className="mt-10 space-y-4">
                   {paymentMethod === 'cash' && parseFloat(amountReceived) > 0 && !isAmountSufficient && (
-                    <div className="flex items-center justify-center gap-2 py-1">
-                      <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></div>
-                      <p className="text-[10px] font-bold text-rose-500 uppercase tracking-[0.2em]">
-                        Insufficient Amount
-                      </p>
-                    </div>
+                    <p className="text-center text-[10px] font-bold text-rose-500 uppercase tracking-widest bg-rose-50 py-2 rounded-lg">
+                      Insufficient Amount
+                    </p>
                   )}
                   <motion.button 
                     whileHover={isProcessing || !isAmountSufficient ? {} : { scale: 1.02 }}
                     whileTap={isProcessing || !isAmountSufficient ? {} : { scale: 0.98 }}
                     onClick={handleCheckout}
                     disabled={isProcessing || !isAmountSufficient}
-                    className="w-full py-5 lg:py-6 bg-slate-900 text-white rounded-[1.5rem] lg:rounded-[2rem] font-bold uppercase tracking-[0.2em] text-xs lg:text-sm flex items-center justify-center gap-3 hover:bg-slate-800 transition-all shadow-2xl relative overflow-hidden disabled:opacity-50 disabled:grayscale"
+                    className="w-full py-5 bg-pink-600 text-white rounded-3xl font-bold uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 hover:bg-pink-700 transition-all shadow-xl shadow-pink-200 disabled:opacity-50 disabled:shadow-none"
                   >
                     {isProcessing ? (
                       <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
                     ) : (
-                      <>
-                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                        Complete Sale
-                      </>
+                      "Complete Order"
                     )}
                   </motion.button>
                   <button 
                     onClick={() => setPaymentModal(false)}
-                    className="w-full py-4 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-slate-900 transition-colors"
+                    className="w-full py-2 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-slate-600 transition-colors"
                   >
-                    Cancel
+                    Close
                   </button>
                 </div>
               </div>
@@ -571,92 +774,84 @@ export default function Cashier() {
                animate={{ opacity: 1 }} 
                exit={{ opacity: 0 }} 
                onClick={() => setReceipt(null)} 
-               className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl print:hidden" 
+               className="absolute inset-0 bg-white/95 backdrop-blur-md print:hidden" 
             />
             <motion.div 
               initial={{ y: 50, opacity: 0, scale: 0.9 }} 
               animate={{ y: 0, opacity: 1, scale: 1 }} 
               exit={{ y: 50, opacity: 0, scale: 0.9 }} 
-              className="relative w-full max-w-sm bg-white rounded-[2.5rem] lg:rounded-[3rem] overflow-hidden shadow-2xl print:shadow-none print:rounded-none print:static print:block py-6 lg:py-10 print:py-0"
+              className="relative w-full max-w-sm bg-white border border-pink-100 rounded-[3rem] overflow-hidden shadow-2xl print:shadow-none print:rounded-none"
             >
-              <div className="p-6 lg:p-10 print:p-0">
-                <div className="text-center mb-6 lg:mb-10">
-                  <div className="w-14 h-14 lg:w-16 lg:h-16 bg-pink-600 text-white rounded-xl lg:rounded-2xl flex items-center justify-center mx-auto mb-4 lg:mb-6 shadow-xl relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-pink-400/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <Receipt className="w-6 h-6 lg:w-8 lg:h-8 relative z-10" />
+              <div className="p-8 print:p-0">
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 bg-pink-600 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-pink-200">
+                    <Receipt className="w-8 h-8" />
                   </div>
-                  <h3 className="text-xl lg:text-2xl font-bold text-slate-900 uppercase tracking-tighter">Sale Successful</h3>
-                  <p className="text-[9px] lg:text-[10px] text-pink-500 font-bold uppercase tracking-[0.2em] mt-1 lg:mt-2">Order ID: {receipt.id}</p>
-                  <p className="text-[8px] lg:text-[9px] text-slate-400 font-bold mt-1 lg:mt-2 uppercase tracking-widest">{receipt.timestamp ? new Date(receipt.timestamp).toLocaleString() : 'N/A'}</p>
+                  <h3 className="text-xl font-bold text-slate-900 uppercase tracking-tight">Success!</h3>
+                  <p className="text-[10px] text-pink-600 font-bold uppercase tracking-widest mt-1">Order #{receipt.id.slice(-8)}</p>
+                  <p className="text-[8px] text-slate-400 font-bold mt-1 uppercase">Today at {receipt.timestamp ? new Date(receipt.timestamp).toLocaleTimeString() : 'N/A'}</p>
                 </div>
 
-                <div className="space-y-4 mb-10 max-h-[200px] overflow-auto scrollbar-hide">
-                  {receipt.items.map((item: any) => (
-                    <div key={item.id} className="flex justify-between items-center bg-pink-50 p-3 rounded-xl">
+                <div className="space-y-3 mb-8 max-h-[180px] overflow-auto scrollbar-hide">
+                  {receipt.items.map((item: any, idx: number) => (
+                    <div key={`${item.id}-${idx}`} className="flex justify-between items-start">
                       <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-900 uppercase">{item.name}</span>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{item.quantity} units x ${(Number(item.price) || 0).toFixed(2)}</span>
+                        <span className="text-xs font-bold text-slate-700">{item.name}</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase">{item.quantity} x ₱{(Number(item.price) || 0).toFixed(2)}</span>
                       </div>
-                      <span className="font-bold text-slate-900 font-mono tracking-tighter">${((Number(item.price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}</span>
+                      <span className="text-sm font-bold text-slate-900 font-mono">₱{((Number(item.price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="border-t-4 border-double border-pink-100 pt-6 lg:pt-8 space-y-2 lg:space-y-3 mb-6 lg:mb-10">
-                  <div className="flex justify-between text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <div className="border-t border-dashed border-pink-100 pt-6 space-y-2 mb-8">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     <span>Subtotal</span>
-                    <span className="font-mono text-slate-900">${(Number(receipt.subtotal) || 0).toFixed(2)}</span>
+                    <span className="font-mono text-slate-700">₱{(Number(receipt.subtotal) || 0).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    <span>Tax (12%)</span>
-                    <span className="font-mono text-slate-900">${(Number(receipt.tax) || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between pt-4 lg:pt-5 border-t border-pink-100">
-                    <span className="text-xs lg:text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Total Amount</span>
-                    <span className="text-xl lg:text-2xl font-bold text-pink-600 font-mono tracking-tighter">${(Number(receipt.total) || 0).toFixed(2)}</span>
+                  {receipt.isSeniorCitizen && (
+                    <>
+                      <div className="flex justify-between text-[10px] font-bold text-pink-500 uppercase tracking-widest">
+                        <span>VAT Exempt</span>
+                        <span className="font-mono">-₱{(Number(receipt.subtotal - receipt.vatExemptSales) || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
+                        <span>SC Discount</span>
+                        <span className="font-mono">-₱{(Number(receipt.scDiscount) || 0).toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+                  {!receipt.isSeniorCitizen && (
+                    <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      <span>Tax (12%)</span>
+                      <span className="font-mono text-slate-700">₱{(Number(receipt.tax) || 0).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-4 border-t border-pink-50">
+                    <span className="text-sm font-bold text-slate-900 uppercase tracking-widest">Total Paid</span>
+                    <span className="text-2xl font-bold text-pink-600 font-mono">₱{(Number(receipt.total) || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
-                <div className="space-y-3 mb-10 p-5 bg-slate-900 rounded-2xl">
-                   <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      <span>Total Received</span>
-                      <span className="font-mono text-white">${(Number(receipt.amountReceived) || 0).toFixed(2)}</span>
-                   </div>
-                   <div className="flex justify-between text-[10px] font-bold text-pink-500 uppercase tracking-widest pt-2 border-t border-white/10">
-                      <span>Change</span>
-                      <span className="font-mono text-pink-400">${(Number(receipt.changeAmount) || 0).toFixed(2)}</span>
-                   </div>
-                </div>
-
-                <div className="bg-pink-50 border border-pink-100 p-5 rounded-2xl text-center mb-10">
-                  <p className="text-[10px] font-bold text-pink-400 uppercase tracking-[0.4em]">Method: {receipt.paymentMethod}</p>
-                </div>
-
-                <div className="flex gap-3 lg:gap-4 print:hidden">
-                  <button 
-                    onClick={handlePrint}
-                    className="flex-1 py-4 lg:py-5 bg-slate-900 text-white rounded-xl lg:rounded-[1.5rem] font-bold uppercase tracking-widest text-[10px] lg:text-xs flex items-center justify-center gap-2 lg:gap-3 hover:bg-slate-800 transition-all shadow-xl active:scale-95"
-                  >
-                    <Receipt className="w-4 h-4 lg:w-5 lg:h-5 opacity-50" />
-                    Print Receipt
-                  </button>
+                <div className="flex gap-3 print:hidden">
                   <button 
                     onClick={() => setReceipt(null)}
-                    className="px-6 lg:px-8 py-4 lg:py-5 text-slate-400 font-bold uppercase tracking-widest text-[9px] lg:text-[10px] hover:text-slate-900 transition-colors"
+                    className="flex-1 py-4 bg-pink-50 text-pink-600 rounded-2xl font-bold uppercase tracking-widest text-[10px] border border-pink-100 hover:bg-pink-100 transition-all active:scale-95"
                   >
                     Done
+                  </button>
+                  <button 
+                    onClick={handlePrint}
+                    className="flex-1 py-4 bg-pink-600 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-pink-700 shadow-lg shadow-pink-200 transition-all active:scale-95"
+                  >
+                    Print
                   </button>
                 </div>
               </div>
             </motion.div>
           </div>
         )}
-        </AnimatePresence>
+      </AnimatePresence>
     </div>
   );
 }
-
-
-const Clock = ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-);
