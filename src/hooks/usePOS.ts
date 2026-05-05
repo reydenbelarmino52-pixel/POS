@@ -11,11 +11,17 @@ export interface Product {
   imageUrl?: string;
 }
 
+export interface Addon {
+  id?: string;
+  name: string;
+  price: number;
+}
+
 export interface CartItem extends Product {
   quantity: number;
   sugarLevel?: number; // 0, 25, 50, 75, 100
   iceLevel?: string;   // Normal, Less, No Ice, More Ice
-  addons?: string[];   // ['Nata de Coco', 'Pearls', etc]
+  addons?: Addon[];    
   selectedSize?: string;
 }
 
@@ -27,12 +33,12 @@ export function usePOS() {
     product: Product, 
     sugarLevel: number = 100, 
     iceLevel: string = 'Normal', 
-    addons: string[] = [], 
+    addons: Addon[] = [], 
     selectedSize: string = 'Regular',
     priceOverride?: number
   ) => {
     setCart(prev => {
-      const addonKey = addons.sort().join(',');
+      const addonKey = addons.map(a => a.name).sort().join(',');
       const finalPrice = priceOverride !== undefined ? priceOverride : product.price;
       
       const existing = prev.find(item => 
@@ -40,7 +46,7 @@ export function usePOS() {
         item.sugarLevel === sugarLevel && 
         item.iceLevel === iceLevel &&
         item.selectedSize === selectedSize &&
-        (item.addons || []).sort().join(',') === addonKey
+        (item.addons || []).map(a => a.name).sort().join(',') === addonKey
       );
 
       if (existing) {
@@ -50,7 +56,7 @@ export function usePOS() {
            item.sugarLevel === sugarLevel && 
            item.iceLevel === iceLevel &&
            item.selectedSize === selectedSize &&
-           (item.addons || []).sort().join(',') === addonKey
+           (item.addons || []).map(a => a.name).sort().join(',') === addonKey
           ) ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
@@ -58,26 +64,26 @@ export function usePOS() {
     });
   }, []);
 
-  const removeFromCart = useCallback((productId: string, sugarLevel?: number, iceLevel?: string, addons?: string[], selectedSize?: string) => {
-    const addonKey = addons?.sort().join(',');
+  const removeFromCart = useCallback((productId: string, sugarLevel?: number, iceLevel?: string, addons?: Addon[], selectedSize?: string) => {
+    const addonKey = addons?.map(a => a.name).sort().join(',');
     setCart(prev => prev.filter(item => {
       const match = item.id === productId && 
                    (sugarLevel === undefined || item.sugarLevel === sugarLevel) &&
                    (iceLevel === undefined || item.iceLevel === iceLevel) &&
                    (selectedSize === undefined || item.selectedSize === selectedSize) &&
-                   (addonKey === undefined || (item.addons || []).sort().join(',') === addonKey);
+                   (addonKey === undefined || (item.addons || []).map(a => a.name).sort().join(',') === addonKey);
       return !match;
     }));
   }, []);
 
-  const updateQuantity = useCallback((productId: string, delta: number, sugarLevel?: number, iceLevel?: string, addons?: string[], selectedSize?: string) => {
-    const addonKey = addons?.sort().join(',');
+  const updateQuantity = useCallback((productId: string, delta: number, sugarLevel?: number, iceLevel?: string, addons?: Addon[], selectedSize?: string) => {
+    const addonKey = addons?.map(a => a.name).sort().join(',');
     setCart(prev => prev.map(item => {
       const match = item.id === productId && 
                    (sugarLevel === undefined || item.sugarLevel === sugarLevel) &&
                    (iceLevel === undefined || item.iceLevel === iceLevel) &&
                    (selectedSize === undefined || item.selectedSize === selectedSize) &&
-                   (addonKey === undefined || (item.addons || []).sort().join(',') === addonKey);
+                   (addonKey === undefined || (item.addons || []).map(a => a.name).sort().join(',') === addonKey);
       
       if (match) {
         const newQty = Math.max(1, item.quantity + delta);
@@ -96,17 +102,9 @@ export function usePOS() {
   const rawSubtotal = cart.reduce((acc, item) => {
     let itemTotal = item.price * item.quantity;
     
-    // Addon prices
-    const addonPrices: Record<string, number> = {
-      'Nata de Coco': 15,
-      'Pearls': 15,
-      'Pudding': 20,
-      'Crystal Boba': 20
-    };
-
     if (item.addons) {
       item.addons.forEach(addon => {
-        itemTotal += (addonPrices[addon] || 0) * item.quantity;
+        itemTotal += (addon.price || 0) * item.quantity;
       });
     }
 

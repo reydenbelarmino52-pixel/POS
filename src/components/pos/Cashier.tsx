@@ -23,7 +23,7 @@ export default function Cashier() {
   const [customizingProduct, setCustomizingProduct] = useState<Product | null>(null);
   const [selectedSugar, setSelectedSugar] = useState<number>(100);
   const [selectedIce, setSelectedIce] = useState<string>('Normal');
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [selectedAddons, setSelectedAddons] = useState<any[]>([]);
   const [productVariants, setProductVariants] = useState<any[]>([]);
   const [selectedSize, setSelectedSize] = useState<string>('Regular');
 
@@ -33,16 +33,23 @@ export default function Cashier() {
     isSeniorCitizen, setIsSeniorCitizen 
   } = usePOS();
 
-  const addonsList = [
-    { name: 'Nata de Coco', price: 15 },
-    { name: 'Pearls', price: 15 },
-    { name: 'Pudding', price: 20 },
-    { name: 'Crystal Boba', price: 20 }
-  ];
+  const addonsList = useMemo(() => {
+    return products.filter(p => 
+      (p.categoryName?.toLowerCase().includes('addon') || 
+       p.categoryName?.toLowerCase().includes('topping') ||
+       p.categoryName?.toLowerCase().includes('extra'))
+    ).map(p => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price) || 0
+    }));
+  }, [products]);
 
-  const toggleAddon = (addonName: string) => {
+  const toggleAddon = (addon: any) => {
     setSelectedAddons(prev => 
-      prev.includes(addonName) ? prev.filter(a => a !== addonName) : [...prev, addonName]
+      prev.find(a => a.name === addon.name) 
+        ? prev.filter(a => a.name !== addon.name) 
+        : [...prev, addon]
     );
   };
 
@@ -432,7 +439,7 @@ export default function Cashier() {
                       </div>
                       {item.addons && item.addons.length > 0 && (
                         <p className="text-[8px] font-bold text-pink-500 uppercase truncate">
-                          + {item.addons.join(', ')}
+                          + {item.addons.map((a: any) => a.name).join(', ')}
                         </p>
                       )}
                     </div>
@@ -659,23 +666,26 @@ export default function Cashier() {
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Add-ons</p>
                     <div className="grid grid-cols-2 gap-2">
-                       {addonsList.map((addon) => (
-                         <button 
-                           key={addon.name}
-                           onClick={() => toggleAddon(addon.name)}
-                           className={`py-3 px-3 rounded-xl text-[10px] font-bold transition-all border text-left flex items-center justify-between
-                              ${selectedAddons.includes(addon.name)
-                                ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
-                                : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
-                           `}
-                         >
-                           <div className="flex flex-col">
-                             <span>{addon.name}</span>
-                             <span className={`text-[8px] ${selectedAddons.includes(addon.name) ? 'text-pink-100' : 'text-pink-500'}`}>+₱{addon.price}</span>
-                           </div>
-                           {selectedAddons.includes(addon.name) && <Plus className="w-3 h-3" />}
-                         </button>
-                       ))}
+                       {addonsList.map((addon) => {
+                         const isSelected = selectedAddons.some(a => a.name === addon.name);
+                         return (
+                           <button 
+                             key={addon.name}
+                             onClick={() => toggleAddon(addon)}
+                             className={`py-3 px-3 rounded-xl text-[10px] font-bold transition-all border text-left flex items-center justify-between
+                                ${isSelected 
+                                  ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
+                                  : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
+                             `}
+                           >
+                             <div className="flex flex-col">
+                               <span>{addon.name}</span>
+                               <span className={`text-[8px] ${isSelected ? 'text-pink-100' : 'text-pink-500'}`}>+₱{addon.price}</span>
+                             </div>
+                             {isSelected && <Plus className="w-3 h-3" />}
+                           </button>
+                         );
+                       })}
                     </div>
                   </div>
 

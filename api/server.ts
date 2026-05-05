@@ -32,6 +32,26 @@ const initSchema = async () => {
           ALTER TABLE sales ADD COLUMN started_at TIMESTAMP WITH TIME ZONE;
         END IF;
 
+        -- Create product_ingredients table
+        CREATE TABLE IF NOT EXISTS product_ingredients (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          product_id UUID REFERENCES products(id),
+          ingredient_id UUID REFERENCES products(id),
+          store_id UUID REFERENCES stores(id),
+          quantity DECIMAL(10,2) NOT NULL DEFAULT 1,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        -- Create product_variants table
+        CREATE TABLE IF NOT EXISTS product_variants (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          product_id UUID REFERENCES products(id),
+          store_id UUID REFERENCES stores(id),
+          name TEXT NOT NULL,
+          price DECIMAL(10,2) NOT NULL DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
         -- Create RPC for sales velocity
         CREATE OR REPLACE FUNCTION get_sold_counts_by_range(store_id_param UUID, start_date TIMESTAMP WITH TIME ZONE)
         RETURNS TABLE(product_id UUID, count BIGINT) AS $func$
@@ -257,6 +277,9 @@ router.get("/inventory/health", authenticateToken, checkStoreAccess, isAdmin, as
       start_date: thirtyDaysAgo.toISOString()
     });
 
+    const { data: variants } = await supabase.from('product_variants').select('product_id').eq('store_id', req.storeId);
+    const { data: recipes } = await supabase.from('product_ingredients').select('product_id').eq('store_id', req.storeId);
+
     const healthData = products?.map(p => {
       const soldCount = recentSales?.find((s: any) => s.product_id === p.id)?.count || 0;
       const dailyVelocity = soldCount / 30;
@@ -278,7 +301,9 @@ router.get("/inventory/health", authenticateToken, checkStoreAccess, isAdmin, as
         dailyVelocity: dailyVelocity.toFixed(2),
         suggestedReorder: Math.ceil(suggestedAmount),
         needsReorder,
-        soldLast30Days: soldCount
+        soldLast30Days: soldCount,
+        hasVariants: variants?.some(v => v.product_id === p.id) || false,
+        hasRecipe: recipes?.some(r => r.product_id === p.id) || false
       };
     });
 
@@ -471,6 +496,10 @@ router.delete("/stores/:id", authenticateToken, async (req: any, res: any) => {
 router.get("/products", authenticateToken, checkStoreAccess, async (req: any, res) => {
   const { data: storeProducts } = await supabase.from('products').select('*, categories(name), suppliers(name)').eq('store_id', req.storeId);
   const { data: soldCounts } = await supabase.rpc('get_sold_counts', { store_id_param: req.storeId });
+  
+  // Get hasVariants and hasRecipe status
+  const { data: variants } = await supabase.from('product_variants').select('product_id').eq('store_id', req.storeId);
+  const { data: recipes } = await supabase.from('product_ingredients').select('product_id').eq('store_id', req.storeId);
 
   const formatted = storeProducts?.map(p => ({
     ...p,
@@ -480,7 +509,9 @@ router.get("/products", authenticateToken, checkStoreAccess, async (req: any, re
     supplierId: p.supplier_id,
     imageUrl: p.image_url,
     lowStockThreshold: p.low_stock_threshold,
-    soldCount: soldCounts?.find((s: any) => s.product_id === p.id)?.count || 0
+    soldCount: soldCounts?.find((s: any) => s.product_id === p.id)?.count || 0,
+    hasVariants: variants?.some(v => v.product_id === p.id) || false,
+    hasRecipe: recipes?.some(r => r.product_id === p.id) || false
   }));
   res.json(formatted || []);
 });
@@ -766,14 +797,21 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
   if (saleError) return res.status(400).json({ error: saleError.message });
 
   // Ingredient Deduction Logic (Cups, Straws, Addons)
-  const deductSupply = async (name: string, quantity: number) => {
-    const { data: supply } = await supabase.from('products')
+  const deductSupply = async (addon: any, quantity: number) => {
+    const addonId = typeof addon === 'object' ? addon.id : null;
+    const addonName = typeof addon === 'object' ? addon.name : addon;
+
+    let query = supabase.from('products')
       .select('id, stock')
-      .eq('store_id', req.storeId)
-      .eq('type', 'supply')
-      .ilike('name', `%${name}%`)
-      .limit(1)
-      .maybeSingle();
+      .eq('store_id', req.storeId);
+    
+    if (addonId) {
+      query = query.eq('id', addonId);
+    } else {
+      query = query.eq('type', 'supply').ilike('name', `%${addonName}%`);
+    }
+
+    const { data: supply } = await query.limit(1).maybeSingle();
 
     if (supply) {
       const newStock = Math.max(0, Number(supply.stock) - quantity);

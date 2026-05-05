@@ -635,7 +635,15 @@ export default function Inventory() {
                         )}
                       </div>
                       <div>
-                        <p className="text-[13px] font-bold text-slate-900 tracking-tight group-hover:text-pink-600 transition-colors uppercase">{p.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[13px] font-bold text-slate-900 tracking-tight group-hover:text-pink-600 transition-colors uppercase">{p.name}</p>
+                          {p.hasRecipe && (
+                             <div className="flex items-center gap-1 group/recipe relative">
+                                <Plus className="w-2.5 h-2.5 text-pink-400" />
+                                <span className="text-[7px] font-bold text-pink-400 uppercase tracking-widest">Recipe</span>
+                             </div>
+                          )}
+                        </div>
                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{p.supplierName || 'Generic'}</p>
                       </div>
                     </div>
@@ -678,7 +686,17 @@ export default function Inventory() {
                     {p.type === 'supply' ? (
                       <span className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-lg">Internal</span>
                     ) : (
-                      `₱${(Number(p.price) || 0).toFixed(2)}`
+                      <div className="flex flex-col items-end">
+                        <span className="text-sm">₱{(Number(p.price) || 0).toFixed(2)}</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                           <span className="text-[8px] font-bold text-pink-500 uppercase tracking-tighter">Base Price</span>
+                        </div>
+                        {p.hasVariants && (
+                          <div className="mt-1 px-2 py-0.5 bg-blue-50 border border-blue-100 rounded text-[7px] font-bold text-blue-600 uppercase tracking-widest">
+                            Multi-Size
+                          </div>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td className="px-10 py-5 text-right">
