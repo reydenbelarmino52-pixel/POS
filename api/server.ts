@@ -6,7 +6,7 @@ import cors from "cors";
 import { body, validationResult } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from './_supabase.js';
-import Groq from "groq-sdk";
+import { GoogleGenAI } from "@google/genai";
 import serverless from "serverless-http";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
@@ -197,7 +197,8 @@ const checkStoreAccess = async (req: any, res: any, next: any) => {
   const { data: user, error } = await supabase.from('users').select('store_ids, role, status').eq('id', req.user.id).single();
   
   if (error || !user) {
-    return res.status(401).json({ error: "User profile not found" });
+    console.error("checkStoreAccess: User not found in DB for ID:", req.user.id, error);
+    return res.status(401).json({ error: "User profile not found in database. You may need to log in again.", details: error?.message });
   }
 
   // If cashier is pending, they cannot access any store dashboard
@@ -236,7 +237,7 @@ router.get("/health", (req, res) => {
     configuration: {
       supabase: isSupabaseConfigured ? "Connected" : "Not Configured (Using Placeholder)",
       jwt: !!process.env.JWT_SECRET ? "Set" : "Using Default",
-      groq: !!process.env.GROQ_API_KEY ? "Enabled" : "Disabled"
+      gemini: !!process.env.GEMINI_API_KEY ? "Enabled" : "Disabled"
     },
     hint: !isSupabaseConfigured ? "To use real persistence, add SUPABASE_URL and SUPABASE_ANON_KEY to your environment variables." : "Database linked successfully."
   });
@@ -330,7 +331,10 @@ router.post("/auth/join-store",
 
 router.get("/auth/profile", authenticateToken, async (req: any, res: any) => {
   const { data: user, error } = await supabase.from('users').select('id, username, role, status, store_ids').eq('id', req.user.id).single();
-  if (error || !user) return res.status(404).json({ error: "User not found" });
+  if (error || !user) {
+    console.error("auth/profile: User not found in DB for ID:", req.user.id, error);
+    return res.status(404).json({ error: "User not found in database", details: error?.message });
+  }
   res.json(user);
 });
 
@@ -785,7 +789,11 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
         store_id: req.storeId,
         product_id: item.id,
         quantity: item.quantity,
-        price_at_sale: item.price
+        price_at_sale: item.price,
+        sugar_level: item.sugarLevel,
+        ice_level: item.iceLevel,
+        size: item.size,
+        addons: item.addons
       }]);
 
       // Log inventory change
@@ -885,6 +893,38 @@ router.post("/products/:id/ingredients", authenticateToken, checkStoreAccess, is
     }));
     
     const { error } = await supabase.from('product_ingredients').insert(toInsert);
+    if (error) return res.status(400).json({ error: error.message });
+  }
+  
+  res.json({ success: true });
+});
+
+router.get("/products/:id/variants", authenticateToken, checkStoreAccess, async (req: any, res: any) => {
+  const { data } = await supabase.from('product_variants')
+    .select('*')
+    .eq('product_id', req.params.id)
+    .eq('store_id', req.storeId);
+  res.json(data || []);
+});
+
+router.post("/products/:id/variants", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  const { variants } = req.body; // Array of { name, price }
+  
+  // Clear existing
+  await supabase.from('product_variants')
+    .delete()
+    .eq('product_id', req.params.id)
+    .eq('store_id', req.storeId);
+  
+  if (variants && variants.length > 0) {
+    const toInsert = variants.map((v: any) => ({
+      product_id: req.params.id,
+      store_id: req.storeId,
+      name: v.name,
+      price: Number(v.price) || 0
+    }));
+    
+    const { error } = await supabase.from('product_variants').insert(toInsert);
     if (error) return res.status(400).json({ error: error.message });
   }
   
@@ -1007,9 +1047,23 @@ router.post("/admin/staff/:userId/reject", authenticateToken, checkStoreAccess, 
   res.json({ success: true });
 });
 
+router.post("/admin/staff/:userId/reset-password", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  const { password } = req.body;
+  if (!password || password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+  const { error } = await supabase.from('users')
+    .update({ password: bcrypt.hashSync(password, 10) })
+    .eq('id', req.params.userId)
+    .contains('store_ids', [req.storeId]);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ success: true });
+});
+
 router.get("/ai/data", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
   try {
-    const { data: products } = await supabase.from('products').select('name, stock, low_stock_threshold, category_id').eq('store_id', req.storeId);
+    const { data: products } = await supabase.from('products').select('name, stock, low_stock_threshold, category_id, type').eq('store_id', req.storeId);
+    const { data: recipes } = await supabase.from('product_ingredients').select('*, product:products!product_id(name), ingredient:products!ingredient_id(name)').eq('store_id', req.storeId);
     const { data: store } = await supabase.from('stores').select('name').eq('id', req.storeId).single();
     const { data: bestSellers } = await supabase.rpc('get_sold_counts', { store_id_param: req.storeId });
     
@@ -1040,7 +1094,17 @@ router.get("/ai/data", authenticateToken, checkStoreAccess, isAdmin, async (req:
 
     res.json({
       storeName: store?.name,
-      products: products?.map(p => ({ name: p.name, stock: p.stock, threshold: p.low_stock_threshold })),
+      products: products?.map(p => ({ 
+        name: p.name, 
+        stock: p.stock, 
+        threshold: p.low_stock_threshold,
+        type: p.type 
+      })),
+      recipes: recipes?.map(r => ({
+        productName: (r as any).product?.name,
+        ingredientName: (r as any).ingredient?.name,
+        quantity: r.quantity
+      })),
       bestSellers: sortedSellers,
       analytics: {
         last7DaysSalesCount: salesHistory.length,
@@ -1060,15 +1124,15 @@ router.get("/ai/data", authenticateToken, checkStoreAccess, isAdmin, async (req:
 
 router.post("/ai/report", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
   try {
-    const apiKey = process.env.GROQ_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: "Groq API key not configured in environment (GROQ_API_KEY)" });
+      return res.status(500).json({ error: "Gemini API key not configured in environment (GEMINI_API_KEY)" });
     }
 
     const { businessData } = req.body;
     if (!businessData) return res.status(400).json({ error: "Business data required" });
 
-    const groq = new Groq({ apiKey });
+    const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `
       You are an expert retail business analyst for Cathtea, specifically for the branch: "${businessData.storeName}".
@@ -1092,16 +1156,36 @@ router.post("/ai/report", authenticateToken, checkStoreAccess, isAdmin, async (r
       Use markdown for formatting. Be precise and business-oriented.
     `;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
     });
 
-    res.json({ insight: chatCompletion.choices[0]?.message?.content });
+    res.json({ insight: response.text });
   } catch (err: any) {
-    console.error("Groq AI Error:", err);
+    console.error("Gemini AI Error:", err);
     res.status(500).json({ error: err.message || "Failed to generate AI report" });
   }
+});
+
+router.post("/admin/actions/clear-inventory-logs", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  const { error } = await supabase.from('inventory_logs').delete().eq('store_id', req.storeId);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ success: true });
+});
+
+router.post("/admin/actions/force-close-shifts", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res: any) => {
+  const { error } = await supabase.from('shifts')
+    .update({ 
+      status: 'closed', 
+      close_time: new Date().toISOString(),
+      closing_cash: 0 // Default to 0 for force close
+    })
+    .eq('store_id', req.storeId)
+    .eq('status', 'open');
+  
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ success: true });
 });
 
 // Catch-all for undefined API routes

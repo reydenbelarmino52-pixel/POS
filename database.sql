@@ -108,6 +108,10 @@ CREATE TABLE IF NOT EXISTS sale_items (
   product_id UUID REFERENCES products(id) ON DELETE NO ACTION, -- Prevent product delete if sold
   quantity INTEGER NOT NULL,
   price_at_sale DECIMAL(10,2) NOT NULL,
+  sugar_level INTEGER,
+  ice_level TEXT,
+  size TEXT,
+  addons TEXT[],
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -123,7 +127,7 @@ CREATE TABLE IF NOT EXISTS inventory_logs (
   timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 12. Product Ingredients (Recipe mapping)
+-- 13. Product Ingredients (Recipe mapping)
 CREATE TABLE IF NOT EXISTS product_ingredients (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
@@ -133,7 +137,17 @@ CREATE TABLE IF NOT EXISTS product_ingredients (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 13. RPC for Analytics
+-- 14. Product Variants (Size and Price)
+CREATE TABLE IF NOT EXISTS product_variants (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 15. RPC for Analytics
 DROP FUNCTION IF EXISTS get_sold_counts(UUID);
 CREATE OR REPLACE FUNCTION get_sold_counts(store_id_param UUID)
 RETURNS TABLE(product_id UUID, count BIGINT, revenue DECIMAL(10,2)) AS $$

@@ -61,6 +61,18 @@ export default function StaffManagement() {
     }
   };
 
+  const resetPassword = async (id: string) => {
+    const newPass = prompt('Enter new password for this staff member:');
+    if (!newPass) return;
+    try {
+      await api.post(`/admin/staff/${id}/reset-password`, { password: newPass });
+      alert('Password reset successfully');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to reset password');
+    }
+  };
+
   const filteredStaff = staff.filter(s => {
     const username = s.username || '';
     const email = s.email || '';
@@ -256,6 +268,13 @@ export default function StaffManagement() {
                           <XCircle className="w-5 h-5" />
                         </button>
                       )}
+                      <button 
+                         onClick={() => resetPassword(s.id)}
+                         className="p-2.5 text-slate-300 hover:text-pink-500 transition-all"
+                         title="Reset Password"
+                      >
+                         <Shield className="w-5 h-5" />
+                      </button>
                       <button className="p-2.5 text-slate-300 hover:text-slate-600 transition-all">
                         <MoreVertical className="w-5 h-5" />
                       </button>

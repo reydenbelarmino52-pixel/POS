@@ -24,6 +24,8 @@ export default function Cashier() {
   const [selectedSugar, setSelectedSugar] = useState<number>(100);
   const [selectedIce, setSelectedIce] = useState<string>('Normal');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [productVariants, setProductVariants] = useState<any[]>([]);
+  const [selectedSize, setSelectedSize] = useState<string>('Regular');
 
   const { 
     cart, addToCart, removeFromCart, updateQuantity, 
@@ -173,6 +175,7 @@ export default function Cashier() {
           price: item.price,
           sugarLevel: item.sugarLevel,
           iceLevel: item.iceLevel,
+          size: item.selectedSize,
           addons: item.addons
         })),
         total,
@@ -213,16 +216,27 @@ export default function Cashier() {
     }
   };
 
-  const handleAddToCartClick = (p: Product) => {
+  const handleAddToCartClick = async (p: Product) => {
     setCustomizingProduct(p);
     setSelectedSugar(100);
     setSelectedIce('Normal');
     setSelectedAddons([]);
+    setSelectedSize('Regular');
+    setProductVariants([]);
+
+    try {
+      const res = await api.get(`/products/${p.id}/variants`);
+      setProductVariants(res.data || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const confirmAddToCart = () => {
     if (customizingProduct) {
-      addToCart(customizingProduct, selectedSugar, selectedIce, selectedAddons);
+      const variant = productVariants.find(v => v.name === selectedSize);
+      const finalPrice = variant ? Number(variant.price) : Number(customizingProduct.price);
+      addToCart(customizingProduct, selectedSugar, selectedIce, selectedAddons, selectedSize, finalPrice);
       setCustomizingProduct(null);
     }
   };
@@ -406,6 +420,9 @@ export default function Cashier() {
                     <div className="flex flex-col gap-0.5 mt-0.5">
                       <div className="flex items-center gap-2">
                         <p className="text-[10px] text-slate-500 font-mono tracking-tighter">₱{(Number(item.price) || 0).toFixed(2)}</p>
+                        {item.selectedSize && (
+                           <span className="text-[8px] font-bold text-pink-600 uppercase">Size: {item.selectedSize}</span>
+                        )}
                         {item.sugarLevel !== undefined && (
                           <span className="text-[8px] font-bold text-slate-400 uppercase">{item.sugarLevel}% Sug</span>
                         )}
@@ -421,9 +438,9 @@ export default function Cashier() {
                     </div>
                   </div>
                   <div className="flex items-center bg-white/50 rounded-xl border border-pink-100 p-1">
-                    <button onClick={() => updateQuantity(item.id, -1, item.sugarLevel, item.iceLevel, item.addons)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
+                    <button onClick={() => updateQuantity(item.id, -1, item.sugarLevel, item.iceLevel, item.addons, item.selectedSize)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
                     <span className="text-xs font-bold w-7 text-center text-slate-700 font-mono">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.id, 1, item.sugarLevel, item.iceLevel, item.addons)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
+                    <button onClick={() => updateQuantity(item.id, 1, item.sugarLevel, item.iceLevel, item.addons, item.selectedSize)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
                   </div>
                 </motion.div>
               ))}
@@ -565,6 +582,39 @@ export default function Cashier() {
                 </div>
 
                 <div className="space-y-6">
+                  {productVariants.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Select Size</p>
+                      <div className="grid grid-cols-2 gap-2">
+                         <button 
+                           onClick={() => setSelectedSize('Regular')}
+                           className={`py-3 rounded-xl text-[10px] font-bold transition-all border flex flex-col items-center justify-center
+                              ${selectedSize === 'Regular' 
+                                ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
+                                : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
+                           `}
+                         >
+                           <span>Regular</span>
+                           <span className={`text-[8px] ${selectedSize === 'Regular' ? 'text-pink-100' : 'text-pink-500'}`}>₱{Number(customizingProduct.price).toFixed(2)}</span>
+                         </button>
+                         {productVariants.map((v) => (
+                           <button 
+                             key={v.id}
+                             onClick={() => setSelectedSize(v.name)}
+                             className={`py-3 rounded-xl text-[10px] font-bold transition-all border flex flex-col items-center justify-center
+                                ${selectedSize === v.name 
+                                  ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
+                                  : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
+                             `}
+                           >
+                             <span>{v.name}</span>
+                             <span className={`text-[8px] ${selectedSize === v.name ? 'text-pink-100' : 'text-pink-500'}`}>₱{Number(v.price).toFixed(2)}</span>
+                           </button>
+                         ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <div className="flex justify-between items-center mb-3">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sugar Level</p>

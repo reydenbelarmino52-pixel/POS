@@ -13,6 +13,7 @@ interface Store {
   id: string;
   name: string;
   ownerId: string;
+  shift_pin?: string;
 }
 
 interface AuthContextType {
@@ -72,10 +73,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               localStorage.setItem('pos_store_id', preferred.id);
             }
           }
-        } catch (e) {
+        } catch (e: any) {
           console.error('Auth sync failed', e);
-          // Don't logout immediately on transient network error, 
-          // but if it's 401 we should.
+          // If the error is 401 (Unauthorized) or 404 (Not Found - User deleted), session is dead.
+          if (e.response?.status === 401 || e.response?.status === 404) {
+            console.warn('Invalid session detected during sync, logging out...');
+            localStorage.removeItem('pos_token');
+            localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_stores');
+            localStorage.removeItem('pos_current_store');
+            localStorage.removeItem('pos_store_id');
+            setUser(null);
+            setStores([]);
+            setCurrentStore(null);
+            navigate('/login');
+          }
         }
       }
       setIsLoading(false);

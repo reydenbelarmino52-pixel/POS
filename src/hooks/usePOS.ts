@@ -16,19 +16,30 @@ export interface CartItem extends Product {
   sugarLevel?: number; // 0, 25, 50, 75, 100
   iceLevel?: string;   // Normal, Less, No Ice, More Ice
   addons?: string[];   // ['Nata de Coco', 'Pearls', etc]
+  selectedSize?: string;
 }
 
 export function usePOS() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isSeniorCitizen, setIsSeniorCitizen] = useState(false);
 
-  const addToCart = useCallback((product: Product, sugarLevel: number = 100, iceLevel: string = 'Normal', addons: string[] = []) => {
+  const addToCart = useCallback((
+    product: Product, 
+    sugarLevel: number = 100, 
+    iceLevel: string = 'Normal', 
+    addons: string[] = [], 
+    selectedSize: string = 'Regular',
+    priceOverride?: number
+  ) => {
     setCart(prev => {
       const addonKey = addons.sort().join(',');
+      const finalPrice = priceOverride !== undefined ? priceOverride : product.price;
+      
       const existing = prev.find(item => 
         item.id === product.id && 
         item.sugarLevel === sugarLevel && 
         item.iceLevel === iceLevel &&
+        item.selectedSize === selectedSize &&
         (item.addons || []).sort().join(',') === addonKey
       );
 
@@ -38,31 +49,34 @@ export function usePOS() {
           (item.id === product.id && 
            item.sugarLevel === sugarLevel && 
            item.iceLevel === iceLevel &&
+           item.selectedSize === selectedSize &&
            (item.addons || []).sort().join(',') === addonKey
           ) ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { ...product, quantity: 1, sugarLevel, iceLevel, addons }];
+      return [...prev, { ...product, price: finalPrice, quantity: 1, sugarLevel, iceLevel, addons, selectedSize }];
     });
   }, []);
 
-  const removeFromCart = useCallback((productId: string, sugarLevel?: number, iceLevel?: string, addons?: string[]) => {
+  const removeFromCart = useCallback((productId: string, sugarLevel?: number, iceLevel?: string, addons?: string[], selectedSize?: string) => {
     const addonKey = addons?.sort().join(',');
     setCart(prev => prev.filter(item => {
       const match = item.id === productId && 
                    (sugarLevel === undefined || item.sugarLevel === sugarLevel) &&
                    (iceLevel === undefined || item.iceLevel === iceLevel) &&
+                   (selectedSize === undefined || item.selectedSize === selectedSize) &&
                    (addonKey === undefined || (item.addons || []).sort().join(',') === addonKey);
       return !match;
     }));
   }, []);
 
-  const updateQuantity = useCallback((productId: string, delta: number, sugarLevel?: number, iceLevel?: string, addons?: string[]) => {
+  const updateQuantity = useCallback((productId: string, delta: number, sugarLevel?: number, iceLevel?: string, addons?: string[], selectedSize?: string) => {
     const addonKey = addons?.sort().join(',');
     setCart(prev => prev.map(item => {
       const match = item.id === productId && 
                    (sugarLevel === undefined || item.sugarLevel === sugarLevel) &&
                    (iceLevel === undefined || item.iceLevel === iceLevel) &&
+                   (selectedSize === undefined || item.selectedSize === selectedSize) &&
                    (addonKey === undefined || (item.addons || []).sort().join(',') === addonKey);
       
       if (match) {

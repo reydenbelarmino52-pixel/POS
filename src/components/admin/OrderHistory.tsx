@@ -142,6 +142,40 @@ export default function OrderHistory() {
     return `${mins}m ${secs}s`;
   };
 
+  const handleExport = () => {
+    if (filteredAndSortedOrders.length === 0) return;
+    
+    const headers = ["Order ID", "Date", "Time", "Operator", "Protocol/Method", "Duration (sec)", "Subtotal", "Tax", "Discount", "Total"];
+    const rows = filteredAndSortedOrders.map(o => {
+      const duration = o.started_at ? (new Date(o.timestamp).getTime() - new Date(o.started_at).getTime()) / 1000 : 0;
+      const subtotal = (Number(o.total) || 0) - (Number(o.tax) || 0) + (Number(o.discount) || 0);
+      return [
+        o.id,
+        new Date(o.timestamp).toLocaleDateString(),
+        new Date(o.timestamp).toLocaleTimeString(),
+        o.cashierName,
+        o.paymentMethod,
+        duration.toFixed(0),
+        subtotal.toFixed(2),
+        (Number(o.tax) || 0).toFixed(2),
+        (Number(o.discount) || 0).toFixed(2),
+        (Number(o.total) || 0).toFixed(2)
+      ];
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n"
+      + rows.map(e => e.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Order_History_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-10 pb-12 print:hidden">
       {/* Header Actions */}
@@ -274,6 +308,7 @@ export default function OrderHistory() {
              <motion.button 
                whileHover={{ scale: 1.02 }}
                whileTap={{ scale: 0.98 }}
+               onClick={handleExport}
                className="flex items-center gap-3 px-8 py-5 bg-white text-slate-900 border border-pink-100 rounded-3xl font-bold text-[10px] uppercase tracking-widest hover:border-pink-500 transition-all shadow-sm"
              >
                <Download className="w-4 h-4 text-pink-500" />

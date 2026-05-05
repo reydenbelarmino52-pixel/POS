@@ -109,6 +109,9 @@ export default function Inventory() {
   const [selectedIngredients, setSelectedIngredients] = useState<any[]>([]); // { ingredientId, quantity }
   const [ingredientsLoading, setIngredientsLoading] = useState(false);
 
+  const [productVariants, setProductVariants] = useState<any[]>([]); // { name, price }
+  const [variantsLoading, setVariantsLoading] = useState(false);
+
   useEffect(() => {
     if (currentStore) {
       fetchData();
@@ -305,9 +308,14 @@ export default function Inventory() {
 
       // Save Ingredients
       if (formData.type === 'product' && productId) {
-        await api.post(`/products/${productId}/ingredients`, {
-          ingredients: selectedIngredients.filter(i => i.ingredientId && i.quantity > 0)
-        });
+        await Promise.all([
+          api.post(`/products/${productId}/ingredients`, {
+            ingredients: selectedIngredients.filter(i => i.ingredientId && i.quantity > 0)
+          }),
+          api.post(`/products/${productId}/variants`, {
+            variants: productVariants.filter(v => v.name && v.price >= 0)
+          })
+        ]);
       }
 
       setModalOpen(false);
@@ -354,6 +362,21 @@ export default function Inventory() {
     }
   };
 
+  const fetchVariants = async (id: string) => {
+    setVariantsLoading(true);
+    try {
+      const { data } = await api.get(`/products/${id}/variants`);
+      setProductVariants(data.map((v: any) => ({
+        name: v.name,
+        price: v.price
+      })));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setVariantsLoading(false);
+    }
+  };
+
   const openEdit = (product: any) => {
     setEditingProduct(product);
     setFormData({
@@ -367,8 +390,10 @@ export default function Inventory() {
       lowStockThreshold: Number(product.lowStockThreshold) || 5
     });
     setSelectedIngredients([]);
+    setProductVariants([]);
     if (product.type === 'product') {
       fetchIngredients(product.id);
+      fetchVariants(product.id);
     }
     setModalOpen(true);
   };
@@ -816,6 +841,64 @@ export default function Inventory() {
                           ))
                         )}
                         {ingredientsLoading && <p className="text-[10px] text-pink-500 animate-pulse font-bold text-center">Loading linked info...</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.type === 'product' && (
+                    <div className="md:col-span-2 space-y-4 pt-4 border-t border-slate-50">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Product Sizes / Pricing Variants</label>
+                        <button 
+                          type="button"
+                          onClick={() => setProductVariants([...productVariants, { name: '', price: formData.price || 0 }])}
+                          className="text-[9px] font-bold text-pink-600 uppercase tracking-widest flex items-center gap-2 hover:bg-pink-50 px-3 py-1.5 rounded-lg transition-all"
+                        >
+                          <Plus className="w-3 h-3" /> Add Size
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {productVariants.length === 0 ? (
+                          <div className="py-8 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-100">
+                             <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Single price only (Base: ₱{(formData.price || 0).toFixed(2)})</p>
+                          </div>
+                        ) : (
+                          productVariants.map((v, idx) => (
+                            <div key={idx} className="flex gap-3 items-center">
+                              <input 
+                                type="text"
+                                placeholder="Size Name (e.g. Large)"
+                                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-pink-500/10"
+                                value={v.name}
+                                onChange={(e) => {
+                                  const newList = [...productVariants];
+                                  newList[idx].name = e.target.value;
+                                  setProductVariants(newList);
+                                }}
+                              />
+                              <input 
+                                type="number"
+                                placeholder="Price"
+                                className="w-24 px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-pink-500/10"
+                                value={v.price}
+                                onChange={(e) => {
+                                  const newList = [...productVariants];
+                                  newList[idx].price = parseFloat(e.target.value) || 0;
+                                  setProductVariants(newList);
+                                }}
+                              />
+                              <button 
+                                type="button"
+                                onClick={() => setProductVariants(productVariants.filter((_, i) => i !== idx))}
+                                className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                        {variantsLoading && <p className="text-[10px] text-pink-500 animate-pulse font-bold text-center">Loading variants...</p>}
                       </div>
                     </div>
                   )}

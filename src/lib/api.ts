@@ -22,6 +22,21 @@ api.interceptors.response.use(
     if (error.code === 'ERR_NETWORK') {
       console.error('Network Error: The API is unreachable. This usually means the backend is not running or redirected incorrectly.');
     }
+    
+    // Global handle for 401 (Unauthorized)
+    if (error.response?.status === 401) {
+       console.warn('Unauthorized request detected, clearing session...');
+       localStorage.removeItem('pos_token');
+       localStorage.removeItem('pos_user');
+       localStorage.removeItem('pos_stores');
+       localStorage.removeItem('pos_current_store');
+       localStorage.removeItem('pos_store_id');
+       // We can't use navigate() here easily without context, but we can window.location
+       if (!window.location.pathname.includes('/login')) {
+         window.location.href = '/login';
+       }
+    }
+    
     return Promise.reject(error);
   }
 );

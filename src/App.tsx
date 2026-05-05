@@ -12,6 +12,7 @@ import OrderHistory from './components/admin/OrderHistory';
 import Shifts from './components/admin/Shifts';
 import StaffManagement from './components/admin/StaffManagement';
 import AIAssistant from './components/ai/AIAssistant';
+import AdminActions from './components/admin/AdminActions';
 
 function PrivateRoute({ children, role }: { children: React.ReactNode, role?: string }) {
   const { user, currentStore, isLoading } = useAuth();
@@ -63,6 +64,12 @@ export default function App() {
           <Route path="/orders" element={
             <PrivateRoute role="admin">
               <OrderHistory />
+            </PrivateRoute>
+          } />
+
+          <Route path="/admin-actions" element={
+            <PrivateRoute role="admin">
+              <AdminActions />
             </PrivateRoute>
           } />
 

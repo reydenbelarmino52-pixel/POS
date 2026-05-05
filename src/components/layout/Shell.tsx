@@ -80,6 +80,7 @@ export default function Shell({ children }: ShellProps) {
     { name: 'AI Assistant', path: '/ai-assistant', icon: Sparkles, roles: ['admin'] },
     { name: 'Staff Management', path: '/staff', icon: Users, roles: ['admin'] },
     { name: 'Shift Management', path: '/shifts', icon: Clock, roles: ['admin', 'cashier'] },
+    { name: 'System Controls', path: '/admin-actions', icon: Settings, roles: ['admin'] },
     { name: 'Switch Branch', path: '/select-store', icon: ShoppingBag, roles: ['admin', 'cashier'] },
   ];
 
