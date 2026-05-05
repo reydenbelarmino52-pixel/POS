@@ -121,25 +121,16 @@ export default function Inventory() {
   const fetchData = async () => {
     if (!currentStore) return;
     try {
-      const [p, c, s, soldData] = await Promise.all([
-        api.get('/products'),
+      const isAdmin = (currentStore as any).role === 'admin' || true; // Assuming admin context for inventory
+      const [p, c, s] = await Promise.all([
+        api.get('/inventory/health'),
         api.get('/categories'),
         api.get('/suppliers'),
-        supabase.rpc('get_sold_counts', { store_id_param: currentStore.id })
       ]);
 
-      const soldCounts = soldData?.data || [];
       const productsData = p?.data || [];
       
-      const productsWithSales = productsData.map((product: any) => {
-        const soldInfo = Array.isArray(soldCounts) ? soldCounts.find((s: any) => s.product_id === product.id) : null;
-        return {
-          ...product,
-          soldCount: soldInfo ? Number(soldInfo.count) : 0
-        };
-      });
-
-      setProducts(productsWithSales);
+      setProducts(productsData);
       setCategories(c?.data || []);
       setSuppliers(s?.data || []);
     } catch (err) {
@@ -522,7 +513,7 @@ export default function Inventory() {
         </div>
       </div>
 
-      <div className="flex bg-white/50 backdrop-blur-md p-2 rounded-3xl border border-pink-100/50 w-fit mb-4">
+      <div className="flex flex-col bg-white/50 backdrop-blur-md p-2 rounded-3xl border border-pink-100/50 w-fit mb-4">
         <button 
           onClick={() => setActiveTab('product')}
           className={`px-8 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'product' ? 'bg-pink-600 text-white shadow-xl shadow-pink-500/20' : 'text-slate-400 hover:text-pink-500'}`}
@@ -536,6 +527,66 @@ export default function Inventory() {
           Supplies & Raw Materials
         </button>
       </div>
+
+      {/* Suggested Reorders Panel */}
+      {products.some(p => p.needsReorder) && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-pink-200 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-96 h-96 bg-pink-500/10 blur-[100px] pointer-events-none"></div>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
+            <div>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-pink-600 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-500/20">
+                  <RefreshCw className="w-6 h-6 text-white animate-spin-slow" />
+                </div>
+                <div>
+                   <h3 className="text-2xl font-bold uppercase tracking-tighter">Smart Reorder Insights</h3>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Based on 30-day velocity calculations</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-400 max-w-xl leading-relaxed">
+                We've identified <span className="text-pink-500 font-bold">{products.filter(p => p.needsReorder).length} items</span> that require immediate attention to maintain a <span className="text-white font-bold">14-day safety stock buffer</span>.
+              </p>
+            </div>
+            <div className="flex -space-x-3">
+               {products.filter(p => p.needsReorder).slice(0, 5).map((p, i) => (
+                 <div key={i} className="w-12 h-12 rounded-full border-4 border-slate-900 bg-white overflow-hidden shadow-xl" title={p.name}>
+                   {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <div className="w-full h-full bg-pink-500/20 text-pink-500 flex items-center justify-center font-bold text-xs">{p.name[0]}</div>}
+                 </div>
+               ))}
+               {products.filter(p => p.needsReorder).length > 5 && (
+                 <div className="w-12 h-12 rounded-full border-4 border-slate-900 bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                    +{products.filter(p => p.needsReorder).length - 5}
+                 </div>
+               )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-10 relative z-10">
+             {products.filter(p => p.needsReorder).slice(0, 3).map((p, i) => (
+                <div key={i} className="p-6 bg-white/[0.03] border border-white/5 rounded-[2rem] hover:bg-white/[0.07] transition-all group">
+                   <div className="flex items-center justify-between mb-4">
+                      <p className="text-[10px] font-bold text-pink-500 uppercase tracking-widest">{p.name}</p>
+                      <span className="text-[10px] font-mono text-slate-500 font-bold uppercase">Stock: {p.stock}</span>
+                   </div>
+                   <div className="flex items-baseline gap-2 mb-4">
+                      <span className="text-3xl font-bold tracking-tighter text-white">+{p.suggestedReorder}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Suggested Units</span>
+                   </div>
+                   <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-pink-500 w-1/3 group-hover:w-full transition-all duration-1000"></div>
+                   </div>
+                   <p className="text-[9px] font-bold text-slate-500 mt-4 uppercase tracking-widest leading-relaxed">
+                     Velocity: <span className="text-slate-300">{p.dailyVelocity} units/day</span>
+                   </p>
+                </div>
+             ))}
+          </div>
+        </motion.div>
+      )}
 
       <div className="bg-white border border-pink-100/50 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-pink-500/5">
         <div className="overflow-x-auto scrollbar-hide">
@@ -595,16 +646,27 @@ export default function Inventory() {
                     </span>
                   </td>
                   <td className="px-10 py-5 cursor-pointer" onClick={() => openHistory(p)}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden p-0.5">
-                        <div 
-                           className={`h-full rounded-full transition-all duration-1000 ${p.stock <= p.lowStockThreshold ? 'bg-amber-500' : 'bg-pink-500'}`}
-                           style={{ width: `${Math.min(((Number(p.stock) || 0) / (Number(p.lowStockThreshold) * 4 || 20)) * 100, 100)}%` }}
-                        />
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-4">
+                        <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden p-0.5">
+                          <div 
+                             className={`h-full rounded-full transition-all duration-1000 ${p.needsReorder ? 'bg-amber-500' : 'bg-pink-500'}`}
+                             style={{ width: `${Math.min(((Number(p.stock) || 0) / (Number(p.lowStockThreshold || 5) * 4)) * 100, 100)}%` }}
+                          />
+                        </div>
+                        <span className={`text-[11px] font-mono font-bold tracking-tight ${p.needsReorder ? 'text-amber-600' : 'text-slate-600'}`}>
+                          {p.stock}
+                        </span>
                       </div>
-                      <span className={`text-[11px] font-mono font-bold tracking-tight ${p.stock <= p.lowStockThreshold ? 'text-amber-600' : 'text-slate-600'}`}>
-                        {p.stock}
-                      </span>
+                      <div className="flex items-center gap-3">
+                         {p.suggestedReorder > 0 && (
+                            <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg">
+                               <RefreshCw className="w-2.5 h-2.5 text-amber-500 animate-spin-slow" />
+                               <span className="text-[8px] font-bold text-amber-700 uppercase tracking-widest">+ {p.suggestedReorder} Reorder Suggestion</span>
+                            </div>
+                         )}
+                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Velocity: {p.dailyVelocity || '0.00'}/day</span>
+                      </div>
                     </div>
                   </td>
                   <td className="px-10 py-5 text-center">

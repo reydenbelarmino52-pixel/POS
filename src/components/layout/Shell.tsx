@@ -87,7 +87,7 @@ export default function Shell({ children }: ShellProps) {
   const filteredNav = navItems.filter(item => item.roles.includes(user?.role || ''));
 
   return (
-    <div className="min-h-screen bg-[#FFF5F7] text-slate-900 flex overflow-hidden relative print:bg-white print:text-black">
+    <div className="h-screen h-[100dvh] bg-[#FFF5F7] text-slate-900 flex overflow-hidden relative print:bg-white print:text-black">
       {/* Dynamic Background Elements */}
       <div className="fixed inset-0 bg-gradient-to-br from-pink-100 via-[#FFF5F7] to-rose-50 pointer-events-none z-0 print:hidden"></div>
       <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-500/5 rounded-full blur-[120px] pointer-events-none z-0 print:hidden"></div>
@@ -204,9 +204,9 @@ export default function Shell({ children }: ShellProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden z-10 print:overflow-visible">
+      <main className="flex-1 flex flex-col min-w-0 h-screen h-[100dvh] overflow-hidden z-10 print:overflow-visible">
         {/* Header */}
-        <header className="h-20 flex items-center justify-between px-8 shrink-0 print:hidden">
+        <header className="h-20 flex items-center justify-between px-8 shrink-0 print:hidden bg-white/40 backdrop-blur-md z-20 border-b border-pink-100/20">
           <div className="flex items-center gap-6">
             <button 
               className="md:hidden p-4 bg-white rounded-2xl border border-slate-100 shadow-sm"

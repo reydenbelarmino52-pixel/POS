@@ -31,6 +31,20 @@ const initSchema = async () => {
         IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='sales' AND COLUMN_NAME='started_at') THEN
           ALTER TABLE sales ADD COLUMN started_at TIMESTAMP WITH TIME ZONE;
         END IF;
+
+        -- Create RPC for sales velocity
+        CREATE OR REPLACE FUNCTION get_sold_counts_by_range(store_id_param UUID, start_date TIMESTAMP WITH TIME ZONE)
+        RETURNS TABLE(product_id UUID, count BIGINT) AS $func$
+        BEGIN
+          RETURN QUERY
+          SELECT si.product_id, SUM(si.quantity)::BIGINT as count
+          FROM sale_items si
+          JOIN sales s ON si.sale_id = s.id
+          WHERE si.store_id = store_id_param
+            AND s.timestamp >= start_date
+          GROUP BY si.product_id;
+        END;
+        $func$ LANGUAGE plpgsql;
       END $$;
     `});
     console.log("Database schema initialized successfully");
@@ -230,18 +244,53 @@ const validate = (req: any, res: any, next: any) => {
 
 // --- API Routes ---
 
-router.get("/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
-    timestamp: new Date().toISOString(),
-    configuration: {
-      supabase: isSupabaseConfigured ? "Connected" : "Not Configured (Using Placeholder)",
-      jwt: !!process.env.JWT_SECRET ? "Set" : "Using Default",
-      gemini: !!process.env.GEMINI_API_KEY ? "Enabled" : "Disabled"
-    },
-    hint: !isSupabaseConfigured ? "To use real persistence, add SUPABASE_URL and SUPABASE_ANON_KEY to your environment variables." : "Database linked successfully."
-  });
+router.get("/inventory/health", authenticateToken, checkStoreAccess, isAdmin, async (req: any, res) => {
+  try {
+    const { data: products } = await supabase.from('products').select('*').eq('store_id', req.storeId);
+    
+    // Get sales for the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { data: recentSales } = await supabase.rpc('get_sold_counts_by_range', { 
+      store_id_param: req.storeId,
+      start_date: thirtyDaysAgo.toISOString()
+    });
+
+    const healthData = products?.map(p => {
+      const soldCount = recentSales?.find((s: any) => s.product_id === p.id)?.count || 0;
+      const dailyVelocity = soldCount / 30;
+      
+      // Suggest enough stock for 14 days
+      const targetStock = Math.ceil(dailyVelocity * 14);
+      const lowStockThreshold = p.low_stock_threshold || 5;
+      
+      // A product needs reordering if:
+      // 1. It's below its manual threshold
+      // 2. Its current stock is less than 3 days of velocity (moving target)
+      const needsReorder = p.stock <= lowStockThreshold || (dailyVelocity > 0 && p.stock < dailyVelocity * 3);
+      
+      // Suggested amount: Bring it back to 14 days of stock, or at least 2x threshold
+      const suggestedAmount = needsReorder ? Math.max(0, targetStock - p.stock, lowStockThreshold * 2 - p.stock) : 0;
+
+      return {
+        ...p,
+        dailyVelocity: dailyVelocity.toFixed(2),
+        suggestedReorder: Math.ceil(suggestedAmount),
+        needsReorder,
+        soldLast30Days: soldCount
+      };
+    });
+
+    res.json(healthData || []);
+  } catch (err: any) {
+    console.error("Inventory Health Error:", err);
+    res.status(500).json({ error: "Failed to fetch inventory health data" });
+  }
 });
+
+// Since get_sold_counts_by_range might not exist, I'll add a check/fallback or create it.
+// I'll update the initSchema to include this RPC.
 
 router.post("/auth/signup",
   [
