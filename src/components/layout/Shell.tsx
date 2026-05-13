@@ -125,9 +125,18 @@ export default function Shell({ children }: ShellProps) {
       <aside className="hidden md:flex flex-col w-72 backdrop-blur-3xl bg-white/80 border-r border-[#E5E7EB] sticky top-0 h-screen z-20 print:hidden shadow-[4px_0_24px_rgba(0,0,0,0.01)]">
         <div className="p-10 pb-6">
           <h1 className="text-3xl font-display font-medium tracking-tighter text-slate-900 flex items-center gap-3 uppercase">
-            <div className="w-10 h-10 bg-pink-600 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200 overflow-hidden relative group/logo">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200 overflow-hidden relative group/logo">
+              <img 
+                src="https://cdn.corenexis.com/files/c/9914686720.png" 
+                alt="Logo" 
+                className="w-full h-full object-contain p-1 relative z-10" 
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
               <div className="absolute inset-0 bg-slate-900 translate-y-full group-hover/logo:translate-y-0 transition-transform duration-500"></div>
-              <span className="text-white font-bold text-sm relative z-10">CT</span>
+              <span className="text-white font-bold text-sm relative z-10 hidden group-hover/logo:block">CT</span>
             </div>
             <span className="leading-none">{currentStore?.name?.split(' ')[0] || 'Cathtea'}</span>
           </h1>
@@ -296,8 +305,16 @@ export default function Shell({ children }: ShellProps) {
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-pink-600 rounded-xl flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">CT</span>
+                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm overflow-hidden p-1">
+                    <img 
+                      src="https://cdn.corenexis.com/files/c/9914686720.png" 
+                      alt="Logo" 
+                      className="w-full h-full object-contain" 
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
                   </div>
                   <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase">Cathtea</h1>
                 </div>

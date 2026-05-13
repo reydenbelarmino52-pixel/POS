@@ -82,8 +82,16 @@ export default function Login() {
       >
         <div className="p-10 md:p-14">
           <div className="flex flex-col items-center mb-10">
-            <div className="w-20 h-20 bg-pink-500 rounded-[2rem] flex items-center justify-center mb-6 shadow-2xl shadow-pink-500/40">
-              <ShoppingCart className="w-10 h-10 text-white" />
+            <div className="w-20 h-20 bg-white rounded-[2rem] flex items-center justify-center mb-6 shadow-2xl shadow-pink-500/20 overflow-hidden group">
+              <img 
+                src="https://cdn.corenexis.com/files/c/9914686720.png" 
+                alt="Cathtea Logo" 
+                className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500" 
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.currentTarget.src = 'https://api.iconify.design/lucide:shopping-cart.svg?color=%23db2777';
+                }}
+              />
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 uppercase font-display">Cathtea POS</h1>
             <p className="text-slate-400 font-semibold text-[10px] uppercase tracking-[0.2em] mt-1">Premium Tea & Quick Bites</p>

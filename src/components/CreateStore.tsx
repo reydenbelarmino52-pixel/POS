@@ -45,8 +45,8 @@ export default function CreateStore() {
         </button>
 
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-pink-500/20">
-            <Sparkles className="w-8 h-8 text-white" />
+          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-pink-500/10 overflow-hidden p-2 border border-pink-50">
+            <img src="https://cdn.corenexis.com/files/c/9914686720.png" alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 uppercase tracking-tight">Add New Store</h1>
           <p className="text-slate-400 font-semibold text-[10px] uppercase tracking-[0.2em] mt-2">Initialize your next business location</p>
