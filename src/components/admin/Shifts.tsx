@@ -202,14 +202,14 @@ export default function Shifts() {
                     </div>
                     <div>
                         <h3 className="text-xl font-display font-bold text-slate-900 tracking-tight uppercase">Shift Active</h3>
-                        <p className="text-[10px] text-pink-500 font-bold uppercase tracking-widest mt-1">Operational since {currentShift.openTime ? new Date(currentShift.openTime).toLocaleTimeString() : '...'}</p>
+                        <p className="text-[10px] text-pink-500 font-bold uppercase tracking-widest mt-1">Operational since {(currentShift.created_at || currentShift.openTime) ? new Date(currentShift.created_at || currentShift.openTime).toLocaleTimeString() : '...'}</p>
                     </div>
                 </div>
 
                 <div className="space-y-4">
                     <div className="flex justify-between items-center p-6 bg-[#FAF9F6] rounded-2xl border border-slate-100">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Opening Amount</span>
-                        <span className="text-lg font-bold text-slate-900 tracking-widest font-mono">₱{(Number(currentShift.openingBalance) || 0).toFixed(2)}</span>
+                        <span className="text-lg font-bold text-slate-900 tracking-widest font-mono">₱{(Number(currentShift.opening_balance ?? currentShift.openingBalance) || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between p-6 bg-emerald-50 border border-emerald-100 rounded-2xl">
                         <div className="flex items-center gap-3">

@@ -6,8 +6,14 @@ import { motion } from 'motion/react';
 import { z } from 'zod';
 
 const loginSchema = z.object({
+  username: z.string().min(1, 'Username is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+const signupSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().min(5, 'Password must be at least 5 characters'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 export default function Login() {
@@ -26,7 +32,8 @@ export default function Login() {
     e.preventDefault();
     setError('');
 
-    const validation = loginSchema.safeParse({ username, password });
+    const schema = isLogin ? loginSchema : signupSchema;
+    const validation = schema.safeParse(isLogin ? { username, password } : { username, email, password });
     if (!validation.success) {
       setError(validation.error.issues[0].message);
       return;

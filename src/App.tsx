@@ -11,7 +11,6 @@ import Dashboard from './components/admin/Dashboard';
 import OrderHistory from './components/admin/OrderHistory';
 import Shifts from './components/admin/Shifts';
 import StaffManagement from './components/admin/StaffManagement';
-import AIAssistant from './components/ai/AIAssistant';
 import AdminActions from './components/admin/AdminActions';
 
 function PrivateRoute({ children, role }: { children: React.ReactNode, role?: string }) {
@@ -82,12 +81,6 @@ export default function App() {
           <Route path="/shifts" element={
             <PrivateRoute>
               <Shifts />
-            </PrivateRoute>
-          } />
-
-          <Route path="/ai-assistant" element={
-            <PrivateRoute>
-              <AIAssistant />
             </PrivateRoute>
           } />
 

@@ -11,13 +11,20 @@ import { useAuth } from '../../hooks/useAuth';
 
 const COLORS = ['#db2777', '#f43f5e', '#d946ef', '#fb7185', '#be185d', '#ec4899'];
 
+const safeFormatDate = (val: any, options: Intl.DateTimeFormatOptions) => {
+  if (!val) return '';
+  const parsed = Date.parse(val);
+  if (isNaN(parsed)) return String(val);
+  return new Date(parsed).toLocaleDateString(undefined, options);
+};
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const isDate = typeof label === 'string' && (label.includes('-') || label.includes('/'));
     return (
       <div className="backdrop-blur-xl bg-white/95 border border-pink-100 p-5 rounded-2xl shadow-2xl min-w-[200px] shadow-pink-100">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-black/5 pb-2">
-          {isDate && label ? new Date(label).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : label}
+          {isDate && label ? safeFormatDate(label, { weekday: 'short', month: 'short', day: 'numeric' }) : label}
         </p>
         <div className="space-y-3">
           {payload.map((entry: any, index: number) => (
@@ -287,7 +294,7 @@ export default function Dashboard() {
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fontSize: 9, fill: 'rgba(0,0,0,0.3)', fontWeight: 'bold' }} 
-                    tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                    tickFormatter={(val) => safeFormatDate(val, { day: 'numeric', month: 'short' })}
                   />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'rgba(0,0,0,0.3)', fontWeight: 'bold' }} />
                   <Tooltip content={<CustomTooltip />} />
@@ -306,7 +313,7 @@ export default function Dashboard() {
                     height={30} 
                     stroke="#ec4899" 
                     fill="#fff"
-                    tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, { day: 'numeric' })}
+                    tickFormatter={(val) => safeFormatDate(val, { day: 'numeric' })}
                     className="recharts-brush"
                   >
                     <AreaChart>

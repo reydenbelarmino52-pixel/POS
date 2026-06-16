@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, ArrowUpDown, Receipt, Calendar, User, PhilippinePeso, Download, Eye, XCircle, Package, Trash2, TriangleAlert } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, Receipt, Calendar, User, PhilippinePeso, Download, Eye, XCircle, Package, Trash2, TriangleAlert, Printer } from 'lucide-react';
 import api from '../../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -52,11 +52,16 @@ export default function OrderHistory() {
     }
   };
 
-  const fetchOrderDetail = async (id: string) => {
+  const fetchOrderDetail = async (id: string, autoPrint = false) => {
     setFetchingDetail(true);
     try {
       const res = await api.get(`/sales/${id}`);
       setSelectedOrder(res.data);
+      if (autoPrint) {
+        setTimeout(() => {
+          window.print();
+        }, 300);
+      }
     } catch (err) {
       console.error(err);
       alert("Failed to fetch transaction details.");
@@ -349,6 +354,7 @@ export default function OrderHistory() {
                     Date & Time <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </th>
+                <th className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Items Sold</th>
                 <th 
                   className="px-10 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-900 transition-colors group text-right"
                   onClick={() => handleSort('paymentMethod')}
@@ -372,7 +378,7 @@ export default function OrderHistory() {
             <tbody className="divide-y divide-pink-50/50 text-[13px]">
                {loading ? (
                 <tr>
-                   <td colSpan={6} className="px-10 py-32 text-center">
+                   <td colSpan={8} className="px-10 py-32 text-center">
                      <div className="flex flex-col items-center gap-6">
                         <div className="w-10 h-10 border-4 border-pink-500/10 border-t-pink-500 rounded-full animate-spin"></div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.5em] animate-pulse">Loading Records...</p>
@@ -381,7 +387,7 @@ export default function OrderHistory() {
                 </tr>
               ) : filteredAndSortedOrders.length === 0 ? (
                 <tr>
-                   <td colSpan={6} className="px-10 py-32 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">
+                   <td colSpan={8} className="px-10 py-32 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">
                      No matching orders
                    </td>
                 </tr>
@@ -420,6 +426,19 @@ export default function OrderHistory() {
                         </span>
                       </div>
                     </td>
+                    <td className="px-10 py-5">
+                      <div className="flex flex-wrap gap-1 max-w-[280px]">
+                        {order.items && order.items.length > 0 ? (
+                          order.items.map((item: any, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-pink-50/60 text-[10px] font-bold text-pink-600 border border-pink-100/50 uppercase tracking-tight">
+                              {item.name} <span className="text-pink-400 font-extrabold">×{item.quantity}</span>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">No products</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-10 py-5 text-right">
                       <span className="px-3 py-1 bg-white border border-pink-100 rounded-lg text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:border-pink-500/30 group-hover:text-pink-500 transition-all">
                         {order.paymentMethod}
@@ -440,6 +459,14 @@ export default function OrderHistory() {
                           title="View Details"
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => fetchOrderDetail(order.id, true)}
+                          disabled={fetchingDetail}
+                          className="p-3 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"
+                          title="Print Receipt"
+                        >
+                          <Printer className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => setOrderToDelete(order)}

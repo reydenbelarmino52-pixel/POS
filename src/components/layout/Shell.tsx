@@ -77,7 +77,6 @@ export default function Shell({ children }: ShellProps) {
     { name: 'Inventory', path: '/inventory', icon: Package, roles: ['admin'] },
     { name: 'Order History', path: '/orders', icon: Receipt, roles: ['admin'] },
     { name: 'Analytics', path: '/reports', icon: BarChart3, roles: ['admin'] },
-    { name: 'AI Assistant', path: '/ai-assistant', icon: Sparkles, roles: ['admin'] },
     { name: 'Staff Management', path: '/staff', icon: Users, roles: ['admin'] },
     { name: 'Shift Management', path: '/shifts', icon: Clock, roles: ['admin', 'cashier'] },
     { name: 'System Controls', path: '/admin-actions', icon: Settings, roles: ['admin'] },
@@ -235,15 +234,6 @@ export default function Shell({ children }: ShellProps) {
           </div>
 
           <div className="flex items-center gap-4">
-             {/* AI Tools shortcut */}
-              <button 
-               onClick={() => navigate('/ai-assistant')}
-               className="hidden sm:flex items-center gap-3 px-6 py-3 bg-pink-600 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-pink-500 transition-all shadow-lg group"
-             >
-               <div className="w-1.5 h-1.5 bg-pink-500 rounded-full group-hover:scale-150 transition-transform shadow-[0_0_8px_rgba(236,72,153,1)]"></div>
-               Shortcut AI Vault
-             </button>
-
             <div className="relative group">
               <div className="p-2.5 bg-white border border-black/5 rounded-xl cursor-pointer hover:bg-pink-50 transition-all">
                 <Bell className="w-5 h-5 text-slate-400" />
