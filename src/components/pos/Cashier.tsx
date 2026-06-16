@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote, User, Receipt, XCircle, ShoppingCart, Package, ArrowRight, Clock } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, User, Receipt, XCircle, ShoppingCart, Package, ArrowRight, Clock, Unlock, Lock, PhilippinePeso, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { usePOS, Product } from '../../hooks/usePOS';
 import api from '../../lib/api';
 import { supabase } from '../../lib/supabase';
@@ -111,34 +111,48 @@ export default function Cashier() {
     }
   };
 
-  const fetchCurrentShift = async (retryAutoOpen = true) => {
+  const [openingBalance, setOpeningBalance] = useState('');
+  const [shiftCode, setShiftCode] = useState('');
+  const [shiftOpenError, setShiftOpenError] = useState('');
+
+  const fetchCurrentShift = async () => {
     try {
       const res = await api.get('/shifts/current');
       if (res.data) {
         setCurrentShift(res.data);
-      } else if (retryAutoOpen) {
-        // Automatically open a shift with 0 balance for quick entry
-        try {
-          const openRes = await api.post('/shifts/open', { 
-            opening_balance: 0, 
-            shift_code: 'bypass' 
-          });
-          setCurrentShift({ id: openRes.data.id, status: 'open', opening_balance: 0 });
-        } catch (openErr: any) {
-          const errorMsg = openErr.response?.data?.error || openErr.message;
-          console.error('Failed to auto-open shift', errorMsg);
-          
-          if (openErr.response?.status === 400 && errorMsg.includes('already active')) {
-             // If it's 400 and active, try fetching one last time without retrying open
-             fetchCurrentShift(false);
-          } else if (openErr.response?.status !== 401) {
-             alert(`Auto-opening shift failed: ${errorMsg}`);
-          }
-          // If 401 (Invalid pin), we let it stay null so they see the "Go to Shift Management" screen
-        }
+      } else {
+        setCurrentShift(null);
       }
     } catch (err) {
       console.error('Failed to fetch shift status', err);
+      setCurrentShift(null);
+    }
+  };
+
+  const handleOpenShift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setShiftOpenError('');
+    const balanceVal = parseFloat(openingBalance);
+    if (isNaN(balanceVal) || balanceVal < 0) {
+      setShiftOpenError('Opening balance must be 0 or greater');
+      return;
+    }
+    if (!shiftCode.trim()) {
+      setShiftOpenError('Store pin is required');
+      return;
+    }
+
+    try {
+      const res = await api.post('/shifts/open', { 
+        opening_balance: balanceVal,
+        shift_code: shiftCode
+      });
+      // Set to active state with all the required properties matching database fields
+      setCurrentShift({ id: res.data.id, status: 'open', opening_balance: balanceVal });
+      setOpeningBalance('');
+      setShiftCode('');
+    } catch (err: any) {
+      setShiftOpenError(err.response?.data?.errors?.[0]?.msg || err.response?.data?.error || 'Failed to open shift');
     }
   };
 
@@ -254,24 +268,103 @@ export default function Cashier() {
 
   if (!currentShift) {
       return (
-          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-dashed border-gray-300">
-              <Clock className="w-16 h-16 text-gray-300 mb-4" />
-              <h2 className="text-xl font-bold text-gray-800">Shift Required</h2>
-              <p className="text-gray-500 mb-6">Please open a shift in Shift Management before accessing the POS.</p>
-              <button 
-                onClick={() => navigate('/shifts')} 
-                className="px-6 py-2 bg-black text-white rounded-lg font-medium"
+        <div className="max-w-md mx-auto my-12">
+          <div className="bg-white rounded-[3rem] p-12 border border-pink-100/50 shadow-2xl flex flex-col items-center text-center shadow-pink-500/5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 via-rose-400 to-pink-500"></div>
+            <div className="w-20 h-20 bg-pink-50 text-pink-600 rounded-[1.8rem] flex items-center justify-center mb-6 border border-pink-100 shadow-inner group transition-transform hover:scale-110">
+              <Unlock className="w-8 h-8" />
+            </div>
+            <h2 className="text-3xl font-display font-bold text-slate-900 mb-2 tracking-tighter uppercase">Open Session</h2>
+            <p className="text-slate-500 mb-8 max-w-xs text-xs font-medium leading-relaxed">Enter your opening cash register balance and Store Pin below to activate this POS terminal.</p>
+            
+            <form onSubmit={handleOpenShift} className="w-full space-y-6 text-left">
+              {shiftOpenError && (
+                <div className="bg-rose-50 text-rose-600 p-4 rounded-xl text-[10px] font-bold flex items-center gap-3 border border-rose-100 uppercase tracking-widest shadow-sm">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  {shiftOpenError}
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-center px-2">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Store Pin</label>
+                  {shiftCode && (shiftCode.length < 4 || shiftCode.length > 8) && (
+                    <span className="text-[9px] font-bold text-rose-500 uppercase tracking-tighter">4-8 digits required</span>
+                  )}
+                </div>
+                <div className="relative group">
+                  <Lock className={`absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
+                    shiftCode && (shiftCode.length < 4 || shiftCode.length > 8) 
+                      ? 'text-rose-500' 
+                      : shiftCode.length >= 4 
+                        ? 'text-emerald-500' 
+                        : 'text-slate-300 group-focus-within:text-pink-500'
+                  }`} />
+                  <input 
+                    type="password"
+                    placeholder="Enter Store Pin"
+                    className={`w-full pl-14 pr-6 py-4 bg-[#FAF9F6] border rounded-2xl focus:outline-none focus:ring-4 transition-all shadow-inner tracking-widest text-[#2D3142] font-bold ${
+                      shiftCode && (shiftCode.length < 4 || shiftCode.length > 8)
+                        ? 'border-rose-200 focus:ring-rose-500/5 focus:bg-white text-rose-600'
+                        : shiftCode.length >= 4
+                          ? 'border-emerald-200 focus:ring-emerald-500/5 focus:bg-white text-emerald-600'
+                          : 'border-slate-100 focus:ring-pink-500/5 focus:bg-white text-slate-900'
+                    }`}
+                    value={shiftCode}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      if (val.length <= 12) setShiftCode(val);
+                    }}
+                  />
+                </div>
+                <div className="flex gap-1 mt-1.5 px-1">
+                  {[...Array(8)].map((_, i) => (
+                    <div 
+                      key={i}
+                      className={`h-0.5 flex-1 rounded-full transition-all duration-500 ${
+                        i < shiftCode.length 
+                          ? (shiftCode.length < 4 || shiftCode.length > 8 ? 'bg-rose-400' : 'bg-emerald-400')
+                          : 'bg-slate-100'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2">Opening Cash Balance (₱)</label>
+                <div className="relative group">
+                  <PhilippinePeso className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-pink-500 transition-colors" />
+                  <input 
+                    type="number"
+                    placeholder="0.00"
+                    required
+                    className="w-full pl-14 pr-6 py-4 bg-[#FAF9F6] border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-pink-500/5 text-slate-900 font-mono text-xl focus:bg-white transition-all shadow-inner"
+                    value={openingBalance}
+                    onChange={(e) => setOpeningBalance(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                disabled={!openingBalance || !shiftCode || shiftCode.length < 4 || shiftCode.length > 8}
+                className="w-full py-4 bg-pink-600 text-white rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-pink-200 hover:bg-pink-500 transition-all disabled:bg-slate-100 disabled:text-slate-300 disabled:shadow-none"
               >
-                Go to Shift Management
-              </button>
+                Activate POS Session
+              </motion.button>
+            </form>
           </div>
+        </div>
       );
   }
 
   return (
-    <div className="h-full flex flex-col lg:flex-row gap-6 min-h-0 print:hidden relative">
+    <div className="h-full flex flex-col lg:flex-row gap-6 min-h-0 relative">
       {/* Product list */}
-      <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${isMobileCartOpen ? 'hidden lg:flex' : 'flex'}`}>
+      <div className={`flex-1 flex flex-col min-h-0 overflow-hidden print:hidden ${isMobileCartOpen ? 'hidden lg:flex' : 'flex'}`}>
         <div className="relative mb-4 group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-pink-500 transition-colors" />
           <input 
@@ -374,7 +467,7 @@ export default function Cashier() {
       {/* Cart sidebar */}
       <div className={`
         fixed inset-0 z-40 lg:relative lg:inset-auto lg:flex
-        w-full lg:w-[450px] flex-col backdrop-blur-3xl bg-white border border-pink-100 lg:rounded-[4rem] shadow-2xl overflow-hidden shrink-0 group/sidebar shadow-pink-100
+        w-full lg:w-[450px] flex-col backdrop-blur-3xl bg-white border border-pink-100 lg:rounded-[4rem] shadow-2xl overflow-hidden shrink-0 group/sidebar shadow-pink-100 print:hidden
         transition-transform duration-500 ease-in-out
         ${isMobileCartOpen ? 'translate-y-0' : 'translate-y-full lg:translate-y-0'}
       `}>
@@ -535,7 +628,7 @@ export default function Cashier() {
 
       {/* Mobile Sticky Bar */}
       <div className={`
-        lg:hidden fixed bottom-0 left-0 right-0 z-30 p-4 transition-transform duration-300
+        lg:hidden fixed bottom-0 left-0 right-0 z-30 p-4 transition-transform duration-300 print:hidden
         ${isMobileCartOpen ? 'translate-y-full' : 'translate-y-0'}
       `}>
         <button 
@@ -561,7 +654,7 @@ export default function Cashier() {
       {/* Customization Modal */}
       <AnimatePresence>
         {customizingProduct && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 print:hidden">
             <motion.div 
                initial={{ opacity: 0 }} 
                animate={{ opacity: 1 }} 
@@ -713,7 +806,7 @@ export default function Cashier() {
       {/* Payment Modal */}
       <AnimatePresence>
         {paymentModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:hidden">
             <motion.div 
                initial={{ opacity: 0 }} 
                animate={{ opacity: 1 }} 
@@ -828,7 +921,7 @@ export default function Cashier() {
       {/* Receipt Modal */}
       <AnimatePresence>
         {receipt && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 print:p-0 print:static print:block">
             <motion.div 
                initial={{ opacity: 0 }} 
                animate={{ opacity: 1 }} 

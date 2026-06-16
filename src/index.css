@@ -58,3 +58,172 @@
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
+
+/* ==========================================================================
+   CSS PRINT STYLESHEET (ORDER STORES RECEIPT GENERATION)
+   ========================================================================== */
+@media print {
+  /* Clean slate and layout resets */
+  html, body {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Automatically hide page headers, sidebar, actions, buttons, and extra backdrops */
+  nav, aside, header, footer, button, .print\:hidden, [role="dialog"] > div:first-child {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Unconstrain structural page wrappers to prevent container cropping/clipping */
+  #root, 
+  body > div, 
+  main, 
+  .flex-1.overflow-auto, 
+  .h-full.flex, 
+  .space-y-10 {
+    position: static !important;
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    width: auto !important;
+    flex: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /* Browser page margin tuning */
+  @page {
+    size: portrait;
+    margin: 0.6cm;
+  }
+
+  /* Receipt container optimizations: Standard narrow receipt format (e.g. 80mm theme) */
+  .relative.w-full.max-w-sm {
+    position: static !important;
+    width: 100% !important;
+    max-width: 80mm !important; /* Perfect portrait layout width for thermal/80mm or standard slip receipt templates */
+    margin: 0 auto !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+
+  /* Spacing fine-tuning to fit the content compactly on single slips */
+  .p-8, .p-10 {
+    padding: 0px !important;
+  }
+  
+  .mb-8, .mb-10 {
+    margin-bottom: 12px !important;
+  }
+
+  .mt-10 {
+    margin-top: 12px !important;
+  }
+
+  /* Fix for lists: ensure scrollable blocks overflow naturally and show all receipt items in full */
+  .max-h-\[180px\],
+  .max-h-\[200px\],
+  .overflow-auto {
+    max-height: none !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Force high contrast text colors for crisp physical printer visibility */
+  .text-slate-900,
+  .text-slate-700,
+  .text-slate-400,
+  .text-slate-300,
+  .text-pink-600,
+  .text-pink-500,
+  .text-emerald-500,
+  .text-red-500 {
+    color: #000000 !important;
+  }
+
+  /* Logo print sizing and styling rules */
+  img {
+    max-width: 60px !important;
+    max-height: 60px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    filter: grayscale(100%) !important; /* Elegant black & white receipt printer compatibility */
+  }
+
+  /* Font weight and rendering structure */
+  .font-bold {
+    font-weight: 700 !important;
+  }
+  .font-mono {
+    font-family: var(--font-mono, "JetBrains Mono", monospace) !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+  }
+
+  /* Custom separators */
+  .border-t, .border-b, .border-pink-100, .border-pink-50 {
+    border-color: #000000 !important;
+    border-style: dotted !important;
+    border-width: 1px 0 0 0 !important;
+  }
+
+  .border-dashed {
+    border-style: dashed !important;
+    border-color: #000000 !important;
+    border-width: 1px 0 0 0 !important;
+  }
+
+  .border-double {
+    border-style: double !important;
+    border-color: #000000 !important;
+    border-width: 3px 0 0 0 !important;
+  }
+
+  /* Uniform, tidy list item rows */
+  .bg-pink-50 {
+    background-color: transparent !important;
+    border: 1px dashed #000000 !important;
+    border-radius: 4px !important;
+    padding: 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  /* Extra details box */
+  .bg-pink-50.border.border-pink-100 {
+    background-color: transparent !important;
+    border: 1px solid #000000 !important;
+    border-radius: 8px !important;
+    padding: 8px !important;
+  }
+
+  /* Typography layout adjustments */
+  h3 {
+    font-size: 16px !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.05em !important;
+  }
+
+  .text-2xl {
+    font-size: 18px !important;
+  }
+}

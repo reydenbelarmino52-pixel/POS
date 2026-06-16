@@ -764,16 +764,17 @@ export default function Inventory() {
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
-              <form onSubmit={handleSave} className="p-8">
-                <div className="flex items-center justify-between mb-8">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+              <form onSubmit={handleSave} className="p-8 flex flex-col h-full overflow-hidden max-h-[90vh]">
+                <div className="flex items-center justify-between mb-8 shrink-0">
                   <h3 className="text-xl font-bold text-gray-900">{editingProduct ? 'Update' : 'New'} Product</h3>
                   <button type="button" onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-black">
                      <X className="w-6 h-6" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex-1 overflow-y-auto pr-2 space-y-6 min-h-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Inventory Type</label>
                     <div className="flex gap-2">
@@ -1039,8 +1040,9 @@ export default function Inventory() {
                     </div>
                   </div>
                 </div>
+                </div>
 
-                <div className="mt-10 flex gap-4">
+                <div className="mt-8 flex gap-4 shrink-0 border-t border-slate-100 pt-6">
                   <button 
                     type="submit" 
                     disabled={uploading}

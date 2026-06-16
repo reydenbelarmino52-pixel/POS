@@ -177,8 +177,9 @@ export default function OrderHistory() {
   };
 
   return (
-    <div className="space-y-10 pb-12 print:hidden">
-      {/* Header Actions */}
+    <div className="space-y-10 pb-12 relative">
+      <div className="space-y-10 print:hidden">
+        {/* Header Actions */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 mb-4">
         <div>
           <h2 className="text-5xl font-display font-bold text-slate-900 tracking-tighter uppercase">Order History</h2>
@@ -455,6 +456,7 @@ export default function OrderHistory() {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
 
       {/* Receipt Modal */}
