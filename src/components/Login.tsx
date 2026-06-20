@@ -58,7 +58,7 @@ export default function Login() {
       if (isLogin) {
         login(res.data.token, res.data.user, res.data.stores);
       } else {
-        setSuccess('Account created successfully! Please sign in with your new credentials.');
+        setSuccess('Account created successfully! Please log in with your new credentials.');
         setIsLogin(true);
         setPassword('');
         setConfirmPassword('');

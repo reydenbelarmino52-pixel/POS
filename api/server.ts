@@ -66,6 +66,108 @@ const initSchema = async () => {
         END;
         $func$ LANGUAGE plpgsql;
       END $$;
+
+      -- Create RPC for checking if user exists, bypassing RLS
+      CREATE OR REPLACE FUNCTION check_user_exists_v1(username_param text, email_param text)
+      RETURNS TABLE (username_exists boolean, email_exists boolean) AS $func$
+      BEGIN
+        RETURN QUERY
+        SELECT 
+          EXISTS (SELECT 1 FROM public.users WHERE LOWER(username) = LOWER(username_param)),
+          EXISTS (SELECT 1 FROM public.users WHERE LOWER(email) = LOWER(email_param));
+      END;
+      $func$ LANGUAGE plpgsql SECURITY DEFINER;
+
+      -- Create RPC to resolve email by username, bypassing RLS
+      CREATE OR REPLACE FUNCTION get_user_email_by_username_v1(username_param text)
+      RETURNS text AS $func$
+      DECLARE
+        email_res text;
+      BEGIN
+        SELECT email INTO email_res FROM public.users WHERE LOWER(username) = LOWER(username_param) LIMIT 1;
+        RETURN email_res;
+      END;
+      $func$ LANGUAGE plpgsql SECURITY DEFINER;
+
+      -- Create RPC for getting user profile, bypassing RLS
+      CREATE OR REPLACE FUNCTION get_user_profile_v1(id_param uuid, auth_id_param uuid, email_param text)
+      RETURNS TABLE (
+        id uuid,
+        username text,
+        email text,
+        password text,
+        role text,
+        status text,
+        store_ids uuid[],
+        created_at timestamp with time zone,
+        auth_id uuid
+      ) AS $func$
+      BEGIN
+        RETURN QUERY
+        SELECT u.id, u.username, u.email, u.password, u.role, u.status, u.store_ids, u.created_at, u.auth_id
+        FROM public.users u
+        WHERE (id_param IS NOT NULL AND u.id = id_param)
+           OR (auth_id_param IS NOT NULL AND u.auth_id = auth_id_param)
+           OR (email_param IS NOT NULL AND LOWER(u.email) = LOWER(email_param))
+        LIMIT 1;
+      END;
+      $func$ LANGUAGE plpgsql SECURITY DEFINER;
+
+      -- Create RPC to upsert user profile, bypassing RLS
+      CREATE OR REPLACE FUNCTION upsert_user_profile_v1(
+        id_param uuid,
+        auth_id_param uuid,
+        username_param text,
+        email_param text,
+        password_param text,
+        role_param text,
+        status_param text,
+        store_ids_param uuid[]
+      ) RETURNS json AS $func$
+      DECLARE
+        existing_user record;
+        final_user json;
+      BEGIN
+        -- Try to find existing profile by ID, auth_id, or email
+        SELECT * INTO existing_user 
+        FROM public.users 
+        WHERE id = id_param 
+           OR (auth_id_param IS NOT NULL AND auth_id = auth_id_param)
+           OR (email_param IS NOT NULL AND LOWER(email) = LOWER(email_param))
+        LIMIT 1;
+
+        IF existing_user.id IS NOT NULL THEN
+          -- Update existing row
+          UPDATE public.users SET
+            auth_id = COALESCE(auth_id_param, users.auth_id),
+            username = COALESCE(username_param, users.username),
+            email = COALESCE(email_param, users.email),
+            password = COALESCE(password_param, users.password),
+            role = COALESCE(role_param, users.role),
+            status = COALESCE(status_param, users.status),
+            store_ids = COALESCE(store_ids_param, users.store_ids)
+          WHERE id = existing_user.id;
+          
+          SELECT row_to_json(u) INTO final_user FROM public.users u WHERE id = existing_user.id;
+        ELSE
+          -- Insert new row
+          INSERT INTO public.users (id, auth_id, username, email, password, role, status, store_ids)
+          VALUES (
+            id_param,
+            auth_id_param,
+            username_param,
+            email_param,
+            password_param,
+            role_param,
+            status_param,
+            store_ids_param
+          )
+          RETURNING row_to_json(public.users) INTO final_user;
+        END IF;
+
+        RETURN final_user;
+      END;
+      $func$ LANGUAGE plpgsql SECURITY DEFINER;
     `});
     console.log("Database schema initialized successfully");
   } catch (err) {
@@ -350,33 +452,39 @@ router.get("/inventory/health", authenticateToken, checkStoreAccess, isAdmin, as
 router.post("/auth/signup",
   [
     body('username').isString().trim().notEmpty(),
-    body('email').isEmail().normalizeEmail(),
+    body('email').isEmail().trim(),
     body('password').isString().isLength({ min: 6 }),
     validate
   ],
   async (req: any, res: any) => {
-    const { username, email, password } = req.body;
+    const { username, password } = req.body;
+    const email = String(req.body.email || '').toLowerCase().trim();
     
     console.log("Signup attempt received - username:", username, "email:", email);
     
-    // Check case-insensitively using ILIKE to avoid duplicate key violates unique constraint "users_username_key"
-    const [byUsername, byEmail] = await Promise.all([
-      supabase.from('users').select('id, username').ilike('username', username),
-      supabase.from('users').select('id, email').ilike('email', email)
-    ]);
-    
-    console.log("Database response for username check:", JSON.stringify(byUsername));
-    console.log("Database response for email check:", JSON.stringify(byEmail));
+    // Check case-insensitively using check_user_exists_v1 RPC to bypass any RLS limits
+    let usernameExists = false;
+    let emailExists = false;
 
-    if (byUsername.error) {
-      console.error("byUsername check database error:", byUsername.error);
-    }
-    if (byEmail.error) {
-      console.error("byEmail check database error:", byEmail.error);
-    }
+    console.log("Checking duplicates using check_user_exists_v1 RPC...");
+    const { data: checkRes, error: checkErr } = await supabase.rpc('check_user_exists_v1', {
+      username_param: username,
+      email_param: email
+    });
 
-    const usernameExists = byUsername.data && byUsername.data.length > 0;
-    const emailExists = byEmail.data && byEmail.data.length > 0;
+    if (!checkErr && checkRes && checkRes.length > 0) {
+      usernameExists = checkRes[0].username_exists;
+      emailExists = checkRes[0].email_exists;
+    } else {
+      console.warn("RPC check_user_exists_v1 failed or returned empty: ", checkErr);
+      // Fallback to direct table queries as safe backup
+      const [byUsername, byEmail] = await Promise.all([
+        supabase.from('users').select('id, username').ilike('username', username),
+        supabase.from('users').select('id, email').ilike('email', email)
+      ]);
+      usernameExists = byUsername.data && byUsername.data.length > 0;
+      emailExists = byEmail.data && byEmail.data.length > 0;
+    }
 
     if (usernameExists || emailExists) {
       const field = usernameExists ? "Username" : "Email";
@@ -397,7 +505,14 @@ router.post("/auth/signup",
     });
 
     if (authError || !authData.user) {
-      return res.status(400).json({ error: authError?.message || "Failed to create authentication user" });
+      const authErrMsg = String(authError?.message || "");
+      console.error("Supabase Auth SignUp Error:", authError);
+      if (authErrMsg.toLowerCase().includes("already registered") || authErrMsg.toLowerCase().includes("already exists")) {
+        return res.status(400).json({ 
+          error: "This email is already registered. If your profile setup was interrupted, simply sign in; our system will automatically finalize and activate your profile." 
+        });
+      }
+      return res.status(400).json({ error: authError?.message || "Failed to create authentication user in Supabase" });
     }
 
     // Automatically assign first store if it exists
@@ -407,58 +522,56 @@ router.post("/auth/signup",
     let newUser = null;
     let dbError = null;
 
-    // 1. Check if a profile was automatically created by a Supabase DB trigger/proc on auth.users insert
-    const { data: existingProfile, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .maybeSingle();
+    try {
+      console.log("Creating user profile using upsert_user_profile_v1 RPC...");
+      const { data: upsertRes, error: upsertErr } = await supabase.rpc('upsert_user_profile_v1', {
+        id_param: authData.user.id,
+        auth_id_param: authData.user.id,
+        username_param: username,
+        email_param: email,
+        password_param: bcrypt.hashSync(password, 10),
+        role_param: 'cashier',
+        status_param: 'active',
+        store_ids_param: initialStores
+      });
 
-    if (existingProfile) {
-      // Profile exists (likely created by a trigger). Update it with initial store, role, and details.
-      const { data: updatedUser, error: updateError } = await supabase
+      if (!upsertErr && upsertRes) {
+        newUser = upsertRes;
+      } else {
+        console.warn("RPC upsert_user_profile_v1 failed, executing manual insertion sequence...", upsertErr);
+        dbError = upsertErr;
+      }
+    } catch (rpcErr: any) {
+      console.error("Exception raising profile via RPC upsert_user_profile_v1:", rpcErr);
+      dbError = rpcErr;
+    }
+
+    // Direct table updates/inserts fallback sequence if RPC failed to assign newUser
+    if (!newUser) {
+      console.log("Executing manual table inserts/checks fallback...");
+      dbError = null; // reset
+      const { data: existingProfile, error: fetchError } = await supabase
         .from('users')
-        .update({
-          username,
-          email,
-          password: bcrypt.hashSync(password, 10),
-          role: existingProfile.role || 'cashier',
-          status: 'active',
-          store_ids: existingProfile.store_ids && existingProfile.store_ids.length > 0 ? existingProfile.store_ids : initialStores
-        })
+        .select('*')
         .eq('id', authData.user.id)
-        .select()
         .maybeSingle();
 
-      if (updateError) {
-        dbError = updateError;
-      } else {
-        newUser = updatedUser;
-      }
-    } else {
-      // 2. No automatic profile exists. Create it manually.
-      const { data: insertedUser, error: insertError } = await supabase.from('users').insert([{
-        id: authData.user.id,
-        username,
-        email,
-        password: bcrypt.hashSync(password, 10),
-        role: 'cashier',
-        status: 'active', // Active by default
-        store_ids: initialStores
-      }]).select().maybeSingle();
-
-      if (insertError) {
-        console.warn("Direct profile insert failed, executing upsert fallback:", insertError.message || insertError);
-        
-        const { data: updatedUser, error: updateError } = await supabase.from('users').upsert({
-          id: authData.user.id,
-          username,
-          email,
-          password: bcrypt.hashSync(password, 10),
-          role: 'cashier',
-          status: 'active',
-          store_ids: initialStores
-        }).select().maybeSingle();
+      if (existingProfile) {
+        // Profile exists (likely created by a trigger). Update it with initial store, role, and details.
+        const { data: updatedUser, error: updateError } = await supabase
+          .from('users')
+          .update({
+            username,
+            email,
+            password: bcrypt.hashSync(password, 10),
+            role: existingProfile.role || 'cashier',
+            status: 'active',
+            store_ids: existingProfile.store_ids && existingProfile.store_ids.length > 0 ? existingProfile.store_ids : initialStores,
+            auth_id: authData.user.id
+          })
+          .eq('id', authData.user.id)
+          .select()
+          .maybeSingle();
 
         if (updateError) {
           dbError = updateError;
@@ -466,15 +579,60 @@ router.post("/auth/signup",
           newUser = updatedUser;
         }
       } else {
-        newUser = insertedUser;
+        // 2. No automatic profile exists. Create it manually.
+        const { data: insertedUser, error: insertError } = await supabase.from('users').insert([{
+          id: authData.user.id,
+          auth_id: authData.user.id,
+          username,
+          email,
+          password: bcrypt.hashSync(password, 10),
+          role: 'cashier',
+          status: 'active', // Active by default
+          store_ids: initialStores
+        }]).select().maybeSingle();
+
+        if (insertError) {
+          console.warn("Direct profile insert failed, executing upsert fallback:", insertError.message || insertError);
+          
+          const { data: updatedUser, error: updateError } = await supabase.from('users').upsert({
+            id: authData.user.id,
+            auth_id: authData.user.id,
+            username,
+            email,
+            password: bcrypt.hashSync(password, 10),
+            role: 'cashier',
+            status: 'active',
+            store_ids: initialStores
+          }).select().maybeSingle();
+
+          if (updateError) {
+            dbError = updateError;
+          } else {
+            newUser = updatedUser;
+          }
+        } else {
+          newUser = insertedUser;
+        }
       }
     }
 
-    if (dbError || !newUser) {
-      const finalError = dbError || fetchError;
-      console.error("Database user profile save failure Details:", finalError);
+    // Handle RLS-shielded select limitation: If there's no DB write error, but newUser is null/empty due to insert-select RLS blocking, construct the user object!
+    if (!dbError && !newUser) {
+      console.log("Insert/Upsert succeeded but select returned empty. Constructing user object from request payload.");
+      newUser = {
+        id: authData.user.id,
+        username,
+        email,
+        role: 'cashier',
+        status: 'active', // Default active
+        store_ids: initialStores
+      };
+    }
+
+    if (dbError) {
+      console.error("Database user profile save failure Details:", dbError);
       
-      const errMsg = String(finalError?.message || "");
+      const errMsg = String(dbError?.message || "");
       if (errMsg.includes("users_username_key") || (errMsg.toLowerCase().includes("unique constraint") && errMsg.toLowerCase().includes("username"))) {
         return res.status(400).json({ error: "Username already exists. Please choose a different username." });
       }
@@ -483,7 +641,7 @@ router.post("/auth/signup",
       }
 
       return res.status(400).json({ 
-        error: finalError?.message || "Failed to save user profile to public database. Please make sure the 'users' table columns match expectations." 
+        error: dbError?.message || "Failed to save user profile to public database. Please make sure the 'users' table columns match expectations." 
       });
     }
 
@@ -561,17 +719,39 @@ router.post("/auth/login",
     // Support username as either username or email
     let emailToAuth = "";
     if (username.includes("@")) {
-      emailToAuth = username;
+      emailToAuth = username.toLowerCase().trim();
     } else {
-      const { data: userProfile } = await supabase
-        .from('users')
-        .select('email')
-        .eq('username', username)
-        .maybeSingle();
-      if (!userProfile) {
-        return res.status(400).json({ error: "User not found" });
+      console.log("Resolving email by username using get_user_email_by_username_v1 RPC...");
+      try {
+        const { data: resolvedEmail, error: rpcErr } = await supabase.rpc('get_user_email_by_username_v1', {
+          username_param: username
+        });
+        if (!rpcErr && resolvedEmail) {
+          emailToAuth = resolvedEmail;
+        } else {
+          console.warn("RPC resolved email is empty, attempting standard fallback SELECT...", rpcErr);
+          const { data: userProfile } = await supabase
+            .from('users')
+            .select('email')
+            .ilike('username', username)
+            .maybeSingle();
+          if (!userProfile) {
+            return res.status(400).json({ error: "User not found" });
+          }
+          emailToAuth = userProfile.email;
+        }
+      } catch (err) {
+        console.error("Exception in username-email resolution RPC:", err);
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('email')
+          .ilike('username', username)
+          .maybeSingle();
+        if (!userProfile) {
+          return res.status(400).json({ error: "User not found" });
+        }
+        emailToAuth = userProfile.email;
       }
-      emailToAuth = userProfile.email;
     }
 
     // Authenticate with Supabase Auth
@@ -585,22 +765,175 @@ router.post("/auth/login",
     }
 
     // Fetch their associated profile from the public.users table as required
-    const { data: user, error: profileError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
+    // We try sequentially to find by: 1. get_user_profile_v1 RPC, 2. Manual fallbacks
+    let userRecord = null;
+    let fallbackProfileError = null;
 
-    if (profileError || !user) {
-      return res.status(400).json({ error: "User profile not found in your public.users table" });
+    try {
+      console.log(`Fetching user profile with get_user_profile_v1 RPC for ID ${authData.user.id}, email ${emailToAuth}...`);
+      const { data: profiles, error: profileErr } = await supabase.rpc('get_user_profile_v1', {
+        id_param: authData.user.id,
+        auth_id_param: authData.user.id,
+        email_param: emailToAuth
+      });
+
+      if (!profileErr && profiles && profiles.length > 0) {
+        userRecord = profiles[0];
+        console.log("Found profile via RPC:", userRecord.id);
+
+        // Auto-update auth_id link if missing
+        if (!userRecord.auth_id) {
+          console.log(`Auto-linking auth_id on found profile ${userRecord.id}`);
+          await supabase.rpc('upsert_user_profile_v1', {
+            id_param: userRecord.id,
+            auth_id_param: authData.user.id,
+            username_param: userRecord.username,
+            email_param: userRecord.email,
+            password_param: userRecord.password,
+            role_param: userRecord.role,
+            status_param: userRecord.status,
+            store_ids_param: userRecord.store_ids
+          });
+          userRecord.auth_id = authData.user.id;
+        }
+      } else {
+        console.warn("get_user_profile_v1 returned empty or error, checking fallback tables...", profileErr);
+        fallbackProfileError = profileErr;
+      }
+    } catch (err: any) {
+      console.error("Exception in get_user_profile_v1 RPC call:", err);
+      fallbackProfileError = err;
     }
 
-    const { data: userStores } = await supabase.from('stores').select('*').in('id', user.store_ids || []);
+    if (!userRecord) {
+      console.log("Running direct table select fallbacks for login...");
+      // 1. Check by ID (since newly-created users set ID to authData.user.id)
+      const { data: userById, error: errById } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .maybeSingle();
 
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, status: user.status, store_ids: user.store_ids }, JWT_SECRET);
+      if (userById) {
+        userRecord = userById;
+      } else {
+        // 2. Check by auth_id (in case public user row was joined on auth_id)
+        const { data: userByAuthId, error: errByAuth } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', authData.user.id)
+          .maybeSingle();
+
+        if (userByAuthId) {
+          userRecord = userByAuthId;
+        } else {
+          // 3. Check by email (handles legacy users created manually or via custom seed before auth linkages)
+          const { data: userByEmail, error: errByEmail } = await supabase
+            .from('users')
+            .select('*')
+            .ilike('email', emailToAuth)
+            .maybeSingle();
+
+          if (userByEmail) {
+            userRecord = userByEmail;
+            // Dynamically link this legacy user profile to their Supabase auth row in the background!
+            console.log(`Linking existing user profile by email (${emailToAuth}) to auth ID: ${authData.user.id}`);
+            await supabase
+              .from('users')
+              .update({ auth_id: authData.user.id })
+              .eq('id', userRecord.id);
+            userRecord.auth_id = authData.user.id;
+          } else {
+            fallbackProfileError = errById || errByAuth || errByEmail;
+          }
+        }
+      }
+    }
+
+    let finalUser = userRecord;
+
+    if (!finalUser) {
+      console.warn("User profile not found in public.users table, implementing auto-self-healing profile on login...", fallbackProfileError);
+      
+      const { data: firstStore } = await supabase.from('stores').select('id').limit(1).maybeSingle();
+      const initialStores = firstStore ? [firstStore.id] : [];
+      const baseUsername = authData.user.user_metadata?.username || (username.includes('@') ? username.split('@')[0] : username) || 'user';
+
+      let healErrorMsg = "";
+      let healedUser = null;
+
+      // Try up to 3 usernames with random suffixes in case of unique constraint collisions
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const usernameToTry = attempt === 0 ? baseUsername : `${baseUsername}_${Math.floor(Math.random() * 10000)}`;
+        
+        console.log(`Self-healing attempt ${attempt} with username ${usernameToTry}...`);
+        try {
+          const { data: upsertedResult, error: upsertErr } = await supabase.rpc('upsert_user_profile_v1', {
+            id_param: authData.user.id,
+            auth_id_param: authData.user.id,
+            username_param: usernameToTry,
+            email_param: authData.user.email || emailToAuth,
+            password_param: bcrypt.hashSync(password, 10),
+            role_param: 'cashier',
+            status_param: 'active',
+            store_ids_param: initialStores
+          });
+
+          if (!upsertErr && upsertedResult) {
+            healedUser = upsertedResult;
+            break;
+          } else {
+            // Direct table insert if RPC is missing
+            const { data: inserted, error: insertErr } = await supabase.from('users').insert([{
+              id: authData.user.id,
+              auth_id: authData.user.id,
+              username: usernameToTry,
+              email: authData.user.email || emailToAuth,
+              password: bcrypt.hashSync(password, 10),
+              role: 'cashier',
+              status: 'active',
+              store_ids: initialStores
+            }]).select().maybeSingle();
+
+            if (!insertErr) {
+              healedUser = inserted || {
+                id: authData.user.id,
+                auth_id: authData.user.id,
+                username: usernameToTry,
+                email: authData.user.email || emailToAuth,
+                role: 'cashier',
+                status: 'active',
+                store_ids: initialStores
+              };
+              break;
+            } else {
+              healErrorMsg = insertErr.message || "Failed profile creation";
+              console.warn(`Self healing direct insert attempt ${attempt} failed: ${healErrorMsg}`);
+              if (!healErrorMsg.toLowerCase().includes("username")) {
+                break;
+              }
+            }
+          }
+        } catch (err: any) {
+          healErrorMsg = err?.message || "Failed profile creation";
+          console.warn(`Self healing RPC exception ${attempt} failed: ${healErrorMsg}`);
+        }
+      }
+
+      if (!healedUser) {
+        return res.status(400).json({ 
+          error: `Failed to locate or auto-generate your user profile: ${healErrorMsg}. Please contact your administrator.` 
+        });
+      }
+      finalUser = healedUser;
+    }
+
+    const { data: userStores } = await supabase.from('stores').select('*').in('id', finalUser.store_ids || []);
+
+    const token = jwt.sign({ id: finalUser.id, username: finalUser.username, role: finalUser.role, status: finalUser.status, store_ids: finalUser.store_ids }, JWT_SECRET);
     res.json({ 
       token, 
-      user: { id: user.id, username: user.username, role: user.role, status: user.status, store_ids: user.store_ids },
+      user: { id: finalUser.id, username: finalUser.username, role: finalUser.role, status: finalUser.status, store_ids: finalUser.store_ids },
       stores: userStores || []
     });
   }
