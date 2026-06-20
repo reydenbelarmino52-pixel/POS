@@ -126,7 +126,7 @@ export default function Shell({ children }: ShellProps) {
           <h1 className="text-3xl font-display font-medium tracking-tighter text-slate-900 flex items-center gap-3 uppercase">
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200 overflow-hidden relative group/logo">
               <img 
-                src="https://cdn.corenexis.com/files/c/9914686720.png" 
+                src="https://cdn.corenexis.com/f/xT3JmIu4IAN.jpg" 
                 alt="Logo" 
                 className="w-full h-full object-contain p-1 relative z-10" 
                 referrerPolicy="no-referrer"
@@ -297,7 +297,7 @@ export default function Shell({ children }: ShellProps) {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm overflow-hidden p-1">
                     <img 
-                      src="https://cdn.corenexis.com/files/c/9914686720.png" 
+                      src="https://cdn.corenexis.com/f/xT3JmIu4IAN.jpg" 
                       alt="Logo" 
                       className="w-full h-full object-contain" 
                       referrerPolicy="no-referrer"

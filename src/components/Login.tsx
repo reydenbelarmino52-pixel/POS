@@ -102,7 +102,7 @@ export default function Login() {
           <div className="flex flex-col items-center mb-10">
             <div className="w-20 h-20 bg-white rounded-[2rem] flex items-center justify-center mb-6 shadow-2xl shadow-pink-500/20 overflow-hidden group">
               <img 
-                src="https://cdn.corenexis.com/files/c/9914686720.png" 
+                src="https://cdn.corenexis.com/f/xT3JmIu4IAN.jpg" 
                 alt="Cathtea Logo" 
                 className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500" 
                 referrerPolicy="no-referrer"
