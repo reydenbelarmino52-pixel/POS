@@ -22,7 +22,7 @@ export interface Order {
  * preventing excess blank feed and ensuring a clean print job.
  */
 export const exportReceiptPDF = (order: Order, paperWidth: 58 | 80 = 80) => {
-  const items = order.items || [];
+  const items = order.items || (order as any).sale_items || [];
   const lineSpacing = 4.2; // vertical spacing in mm
   
   // Dynamic Height Calculation:
@@ -94,7 +94,7 @@ export const exportReceiptPDF = (order: Order, paperWidth: 58 | 80 = 80) => {
     : 'N/A';
 
   printRow('DATE & TIME:', formattedDate, 'normal', 6.5);
-  printRow('CASHIER:', (order.cashierName || 'SYSTEMADMIN').toUpperCase(), 'normal', 6.5);
+  printRow('CASHIER:', (order.cashierName || (order as any).cashier_name || 'SYSTEMADMIN').toUpperCase(), 'normal', 6.5);
   printRow('ORDER ID:', `#${order.id || 'N/A'}`, 'normal', 6);
   printDivider('-');
 
@@ -112,8 +112,12 @@ export const exportReceiptPDF = (order: Order, paperWidth: 58 | 80 = 80) => {
   doc.setFontSize(7);
   
   items.forEach((item: any) => {
-    const name = (item.name || 'Unknown Product').toUpperCase();
-    const qty = String(item.quantity || 1);
+    // Highly robust fallback list to make sure name is always captured
+    const rawProd = item.products || item.product;
+    const productName = Array.isArray(rawProd) ? rawProd[0]?.name : rawProd?.name;
+    const name = (item.name || productName || 'Unknown Product').toUpperCase();
+    
+    const qty = String(item.quantity || item.qty || 1);
     const price = Number(item.priceAtSale) || Number(item.price_at_sale) || Number(item.price) || 0;
     const itemTotal = `P${(price * Number(qty)).toFixed(2)}`;
     
@@ -152,9 +156,10 @@ export const exportReceiptPDF = (order: Order, paperWidth: 58 | 80 = 80) => {
   printDivider('-');
 
   // 5. Cash Received & Change Amount
-  const paid = Number(order.amountReceived) || Number(order.total) || 0;
-  const change = Number(order.changeAmount) || 0;
-  printRow('METHOD:', String(order.paymentMethod).toUpperCase(), 'bold', 7);
+  const paid = Number(order.amountReceived) || Number((order as any).amount_received) || Number(order.total) || 0;
+  const change = Number(order.changeAmount) || Number((order as any).change_amount) || 0;
+  const method = String(order.paymentMethod || (order as any).payment_method || 'cash').toUpperCase();
+  printRow('METHOD:', method, 'bold', 7);
   printRow('PAID:', `P${paid.toFixed(2)}`, 'normal', 7);
   printRow('CHANGE:', `P${change.toFixed(2)}`, 'normal', 7);
   printDivider('=');

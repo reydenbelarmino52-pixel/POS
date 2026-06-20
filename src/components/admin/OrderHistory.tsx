@@ -57,9 +57,15 @@ export default function OrderHistory() {
     setFetchingDetail(true);
     try {
       const res = await api.get(`/sales/${id}`);
-      setSelectedOrder(res.data);
+      const listOrder = orders.find(o => o.id === id);
+      const mergedOrder = {
+        ...listOrder,
+        ...res.data,
+        items: res.data.items && res.data.items.length > 0 ? res.data.items : (listOrder?.items || [])
+      };
+      setSelectedOrder(mergedOrder);
       if (autoPrint) {
-        exportReceiptPDF(res.data, 80);
+        exportReceiptPDF(mergedOrder, 80);
       }
     } catch (err) {
       console.error(err);
