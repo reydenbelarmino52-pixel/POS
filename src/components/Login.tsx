@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../lib/api';
-import { ShoppingCart, Lock, User, AlertCircle, Mail } from 'lucide-react';
+import { ShoppingCart, Lock, User, AlertCircle, Mail, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { z } from 'zod';
 
@@ -25,12 +25,14 @@ export default function Login() {
   const [storeName, setStoreName] = useState('');
   const [shiftCode, setShiftCode] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
 
     const schema = isLogin ? loginSchema : signupSchema;
     const validation = schema.safeParse(isLogin ? { username, password } : { username, email, password });
@@ -52,7 +54,16 @@ export default function Login() {
         : { username, email, password };
       
       const res = await api.post(endpoint, payload);
-      login(res.data.token, res.data.user, res.data.stores);
+      
+      if (isLogin) {
+        login(res.data.token, res.data.user, res.data.stores);
+      } else {
+        setSuccess('Account created successfully! Please sign in with your new credentials.');
+        setIsLogin(true);
+        setPassword('');
+        setConfirmPassword('');
+        setEmail('');
+      }
     } catch (err: any) {
       console.error('Submission error:', err);
       let apiError: string = 'Connection failed';
@@ -106,13 +117,13 @@ export default function Login() {
 
           <div className="flex bg-slate-50 p-1.5 rounded-2xl mb-8">
             <button 
-              onClick={() => setIsLogin(true)}
+              onClick={() => { setIsLogin(true); setSuccess(''); setError(''); }}
               className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${isLogin ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Sign In
             </button>
             <button 
-              onClick={() => setIsLogin(false)}
+              onClick={() => { setIsLogin(false); setSuccess(''); setError(''); }}
               className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${!isLogin ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Register
@@ -120,6 +131,13 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {success && (
+              <div className="bg-emerald-50 text-emerald-600 p-4 rounded-2xl text-xs font-semibold flex items-center gap-3 border border-emerald-100 italic transition-all animate-fade-in">
+                <CheckCircle className="w-4 h-4 shrink-0" />
+                {success}
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-50 text-red-500 p-4 rounded-2xl text-xs font-semibold flex items-center gap-3 border border-red-100 italic transition-all animate-shake">
                 <AlertCircle className="w-4 h-4 shrink-0" />

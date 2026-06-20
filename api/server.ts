@@ -366,11 +366,22 @@ router.post("/auth/signup",
       return res.status(400).json({ error: "Username or email already exists" });
     }
 
+    // Call Supabase Auth signUp to register the user in Supabase Authentication dashboard
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError || !authData.user) {
+      return res.status(400).json({ error: authError?.message || "Failed to create authentication user" });
+    }
+
     // Automatically assign first store if it exists
     const { data: firstStore } = await supabase.from('stores').select('id').limit(1).maybeSingle();
     const initialStores = firstStore ? [firstStore.id] : [];
 
     const { data: newUser, error } = await supabase.from('users').insert([{
+      id: authData.user.id,
       username,
       email,
       password: bcrypt.hashSync(password, 10),
@@ -452,11 +463,42 @@ router.post("/auth/login",
   async (req: any, res: any) => {
     const { username, password } = req.body;
     
-    const { data: user, error } = await supabase.from('users').select('*').eq('username', username).single();
-    if (!user || error) return res.status(400).json({ error: "User not found" });
+    // Support username as either username or email
+    let emailToAuth = "";
+    if (username.includes("@")) {
+      emailToAuth = username;
+    } else {
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('email')
+        .eq('username', username)
+        .maybeSingle();
+      if (!userProfile) {
+        return res.status(400).json({ error: "User not found" });
+      }
+      emailToAuth = userProfile.email;
+    }
 
-    const validPass = await bcrypt.compare(password, user.password);
-    if (!validPass) return res.status(400).json({ error: "Invalid password" });
+    // Authenticate with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: emailToAuth,
+      password: password
+    });
+
+    if (authError || !authData.user) {
+      return res.status(400).json({ error: authError?.message || "Invalid credentials" });
+    }
+
+    // Fetch their associated profile from the public.users table as required
+    const { data: user, error: profileError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (profileError || !user) {
+      return res.status(400).json({ error: "User profile not found in your public.users table" });
+    }
 
     const { data: userStores } = await supabase.from('stores').select('*').in('id', user.store_ids || []);
 
