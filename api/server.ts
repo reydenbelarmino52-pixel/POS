@@ -357,19 +357,43 @@ router.post("/auth/signup",
   async (req: any, res: any) => {
     const { username, email, password } = req.body;
     
+    console.log("Signup attempt received - username:", username, "email:", email);
+    
+    // Check case-insensitively using ILIKE to avoid duplicate key violates unique constraint "users_username_key"
     const [byUsername, byEmail] = await Promise.all([
-      supabase.from('users').select('id').eq('username', username).maybeSingle(),
-      supabase.from('users').select('id').eq('email', email).maybeSingle()
+      supabase.from('users').select('id, username').ilike('username', username),
+      supabase.from('users').select('id, email').ilike('email', email)
     ]);
     
-    if (byUsername.data || byEmail.data) {
-      return res.status(400).json({ error: "Username or email already exists" });
+    console.log("Database response for username check:", JSON.stringify(byUsername));
+    console.log("Database response for email check:", JSON.stringify(byEmail));
+
+    if (byUsername.error) {
+      console.error("byUsername check database error:", byUsername.error);
+    }
+    if (byEmail.error) {
+      console.error("byEmail check database error:", byEmail.error);
+    }
+
+    const usernameExists = byUsername.data && byUsername.data.length > 0;
+    const emailExists = byEmail.data && byEmail.data.length > 0;
+
+    if (usernameExists || emailExists) {
+      const field = usernameExists ? "Username" : "Email";
+      return res.status(400).json({ error: `${field} already exists (case-insensitive)` });
     }
 
     // Call Supabase Auth signUp to register the user in Supabase Authentication dashboard
+    // We pass metadata in metadata options to satisfy triggers requiring username / email
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          username: username,
+          email: email,
+        }
+      }
     });
 
     if (authError || !authData.user) {
@@ -380,17 +404,88 @@ router.post("/auth/signup",
     const { data: firstStore } = await supabase.from('stores').select('id').limit(1).maybeSingle();
     const initialStores = firstStore ? [firstStore.id] : [];
 
-    const { data: newUser, error } = await supabase.from('users').insert([{
-      id: authData.user.id,
-      username,
-      email,
-      password: bcrypt.hashSync(password, 10),
-      role: 'cashier',
-      status: 'active', // Active by default as requested
-      store_ids: initialStores
-    }]).select().single();
+    let newUser = null;
+    let dbError = null;
 
-    if (error) return res.status(400).json({ error: error.message });
+    // 1. Check if a profile was automatically created by a Supabase DB trigger/proc on auth.users insert
+    const { data: existingProfile, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .maybeSingle();
+
+    if (existingProfile) {
+      // Profile exists (likely created by a trigger). Update it with initial store, role, and details.
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('users')
+        .update({
+          username,
+          email,
+          password: bcrypt.hashSync(password, 10),
+          role: existingProfile.role || 'cashier',
+          status: 'active',
+          store_ids: existingProfile.store_ids && existingProfile.store_ids.length > 0 ? existingProfile.store_ids : initialStores
+        })
+        .eq('id', authData.user.id)
+        .select()
+        .maybeSingle();
+
+      if (updateError) {
+        dbError = updateError;
+      } else {
+        newUser = updatedUser;
+      }
+    } else {
+      // 2. No automatic profile exists. Create it manually.
+      const { data: insertedUser, error: insertError } = await supabase.from('users').insert([{
+        id: authData.user.id,
+        username,
+        email,
+        password: bcrypt.hashSync(password, 10),
+        role: 'cashier',
+        status: 'active', // Active by default
+        store_ids: initialStores
+      }]).select().maybeSingle();
+
+      if (insertError) {
+        console.warn("Direct profile insert failed, executing upsert fallback:", insertError.message || insertError);
+        
+        const { data: updatedUser, error: updateError } = await supabase.from('users').upsert({
+          id: authData.user.id,
+          username,
+          email,
+          password: bcrypt.hashSync(password, 10),
+          role: 'cashier',
+          status: 'active',
+          store_ids: initialStores
+        }).select().maybeSingle();
+
+        if (updateError) {
+          dbError = updateError;
+        } else {
+          newUser = updatedUser;
+        }
+      } else {
+        newUser = insertedUser;
+      }
+    }
+
+    if (dbError || !newUser) {
+      const finalError = dbError || fetchError;
+      console.error("Database user profile save failure Details:", finalError);
+      
+      const errMsg = String(finalError?.message || "");
+      if (errMsg.includes("users_username_key") || (errMsg.toLowerCase().includes("unique constraint") && errMsg.toLowerCase().includes("username"))) {
+        return res.status(400).json({ error: "Username already exists. Please choose a different username." });
+      }
+      if (errMsg.includes("users_email_key") || (errMsg.toLowerCase().includes("unique constraint") && errMsg.toLowerCase().includes("email"))) {
+         return res.status(400).json({ error: "Email already exists. Please choose a different email." });
+      }
+
+      return res.status(400).json({ 
+        error: finalError?.message || "Failed to save user profile to public database. Please make sure the 'users' table columns match expectations." 
+      });
+    }
 
     const { data: userStores } = await supabase.from('stores').select('*').in('id', initialStores);
 
