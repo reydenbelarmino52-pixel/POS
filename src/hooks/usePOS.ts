@@ -112,12 +112,11 @@ export function usePOS() {
   }, 0);
   
   // Philippine Senior Citizen / PWD Discount Logic:
-  // 1. Remove 12% VAT (Vat-Exempt Sales)
-  // 2. Apply 20% Discount on the VAT-exempt amount
-  const vatExemptSales = isSeniorCitizen ? rawSubtotal / 1.12 : rawSubtotal;
-  const scDiscount = isSeniorCitizen ? vatExemptSales * 0.20 : 0;
-  const tax = isSeniorCitizen ? 0 : rawSubtotal * 0.12;
-  const total = isSeniorCitizen ? vatExemptSales - scDiscount : rawSubtotal + tax;
+  // Apply 20% Discount directly on the subtotal
+  const vatExemptSales = rawSubtotal;
+  const scDiscount = isSeniorCitizen ? rawSubtotal * 0.20 : 0;
+  const tax = 0;
+  const total = rawSubtotal - scDiscount;
 
   return {
     cart,

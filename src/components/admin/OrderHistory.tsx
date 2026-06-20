@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, ArrowUpDown, Receipt, Calendar, User, PhilippinePeso, Download, Eye, XCircle, Package, Trash2, TriangleAlert, Printer } from 'lucide-react';
 import api from '../../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
+import { exportReceiptPDF } from '../../utils/receiptGenerator';
 
 interface Order {
   id: string;
@@ -58,9 +59,7 @@ export default function OrderHistory() {
       const res = await api.get(`/sales/${id}`);
       setSelectedOrder(res.data);
       if (autoPrint) {
-        setTimeout(() => {
-          window.print();
-        }, 300);
+        exportReceiptPDF(res.data, 80);
       }
     } catch (err) {
       console.error(err);
@@ -150,10 +149,10 @@ export default function OrderHistory() {
   const handleExport = () => {
     if (filteredAndSortedOrders.length === 0) return;
     
-    const headers = ["Order ID", "Date", "Time", "Operator", "Protocol/Method", "Duration (sec)", "Subtotal", "Tax", "Discount", "Total"];
+    const headers = ["Order ID", "Date", "Time", "Operator", "Protocol/Method", "Duration (sec)", "Subtotal", "Discount", "Total"];
     const rows = filteredAndSortedOrders.map(o => {
       const duration = o.started_at ? (new Date(o.timestamp).getTime() - new Date(o.started_at).getTime()) / 1000 : 0;
-      const subtotal = (Number(o.total) || 0) - (Number(o.tax) || 0) + (Number(o.discount) || 0);
+      const subtotal = (Number(o.total) || 0) + (Number(o.discount) || 0);
       return [
         o.id,
         new Date(o.timestamp).toLocaleDateString(),
@@ -162,7 +161,6 @@ export default function OrderHistory() {
         o.paymentMethod,
         duration.toFixed(0),
         subtotal.toFixed(2),
-        (Number(o.tax) || 0).toFixed(2),
         (Number(o.discount) || 0).toFixed(2),
         (Number(o.total) || 0).toFixed(2)
       ];
@@ -536,11 +534,7 @@ export default function OrderHistory() {
                 <div className="border-t-4 border-double border-pink-100 pt-8 space-y-3 mb-10">
                   <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     <span>Subtotal</span>
-                    <span className="font-mono text-slate-900">₱{((Number(selectedOrder.total) || 0) - (Number(selectedOrder.tax) || 0) + (Number(selectedOrder.discount) || 0)).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    <span>Tax (12%)</span>
-                    <span className="font-mono text-slate-900">₱{(Number(selectedOrder.tax) || 0).toFixed(2)}</span>
+                    <span className="font-mono text-slate-900">₱{((Number(selectedOrder.total) || 0) + (Number(selectedOrder.discount) || 0)).toFixed(2)}</span>
                   </div>
                   {selectedOrder.discount > 0 && (
                     <div className="flex justify-between text-[10px] font-bold text-red-500 uppercase tracking-widest">
@@ -568,17 +562,18 @@ export default function OrderHistory() {
                   </div>
                 </div>
 
-                <div className="flex gap-4 print:hidden">
+                {/* Print actions */}
+                <div className="flex gap-4 print:hidden border-t border-dashed border-pink-100 pt-6">
                   <button 
-                    onClick={handlePrint}
-                    className="flex-1 py-5 bg-pink-600 text-white rounded-[1.5rem] font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-pink-500 transition-all shadow-xl shadow-pink-200 active:scale-95"
+                    onClick={() => exportReceiptPDF(selectedOrder, 80)}
+                    className="flex-1 py-5 bg-pink-600 text-white rounded-[1.5rem] font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-pink-500 transition-all shadow-xl shadow-pink-200 active:scale-95 cursor-pointer"
                   >
-                    <Receipt className="w-5 h-5 opacity-50" />
+                    <Receipt className="w-5 h-5 opacity-85" />
                     Print Receipt
                   </button>
                   <button 
                     onClick={() => setSelectedOrder(null)}
-                    className="px-8 py-5 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-pink-600 transition-colors"
+                    className="px-8 py-5 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-pink-600 transition-colors cursor-pointer"
                   >
                     Close
                   </button>

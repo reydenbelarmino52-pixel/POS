@@ -5,6 +5,7 @@ import { usePOS, Product } from '../../hooks/usePOS';
 import api from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
+import { exportReceiptPDF } from '../../utils/receiptGenerator';
 
 export default function Cashier() {
   const navigate = useNavigate();
@@ -209,6 +210,17 @@ export default function Cashier() {
         started_at: orderStartTime
       });
       
+      let cashierName = 'SYSTEMADMIN';
+      try {
+        const storedUser = localStorage.getItem('pos_user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          cashierName = parsed.username || parsed.name || 'SYSTEMADMIN';
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
       setReceipt({
         id: res.data.id,
         items: [...cart],
@@ -222,7 +234,8 @@ export default function Cashier() {
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountReceived) || total : total,
         changeAmount: paymentMethod === 'cash' ? changeAmount : 0,
         timestamp: new Date().toISOString(),
-        started_at: orderStartTime
+        started_at: orderStartTime,
+        cashierName
       });
       
       clearCart();
@@ -578,21 +591,9 @@ export default function Cashier() {
               <span className="text-slate-600 font-mono tracking-widest">₱{(Number(subtotal) || 0).toFixed(2)}</span>
             </div>
             {isSeniorCitizen && (
-              <>
-                <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-pink-500">
-                  <span>VAT Exempt Deduction</span>
-                  <span className="font-mono tracking-widest">-₱{(Number(subtotal - vatExemptSales) || 0).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-500">
-                  <span>SC Discount (20%)</span>
-                  <span className="font-mono tracking-widest">-₱{(Number(scDiscount) || 0).toFixed(2)}</span>
-                </div>
-              </>
-            )}
-            {!isSeniorCitizen && (
-              <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                <span>Tax (12%)</span>
-                <span className="text-slate-600 font-mono tracking-widest">₱{(Number(tax) || 0).toFixed(2)}</span>
+              <div className="flex justify-between text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-500">
+                <span>SC Discount (20%)</span>
+                <span className="font-mono tracking-widest">-₱{(Number(scDiscount) || 0).toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between items-center pt-4 lg:pt-8 border-t border-pink-100">
@@ -963,21 +964,9 @@ export default function Cashier() {
                     <span className="font-mono text-slate-700">₱{(Number(receipt.subtotal) || 0).toFixed(2)}</span>
                   </div>
                   {receipt.isSeniorCitizen && (
-                    <>
-                      <div className="flex justify-between text-[10px] font-bold text-pink-500 uppercase tracking-widest">
-                        <span>VAT Exempt</span>
-                        <span className="font-mono">-₱{(Number(receipt.subtotal - receipt.vatExemptSales) || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-                        <span>SC Discount</span>
-                        <span className="font-mono">-₱{(Number(receipt.scDiscount) || 0).toFixed(2)}</span>
-                      </div>
-                    </>
-                  )}
-                  {!receipt.isSeniorCitizen && (
-                    <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      <span>Tax (12%)</span>
-                      <span className="font-mono text-slate-700">₱{(Number(receipt.tax) || 0).toFixed(2)}</span>
+                    <div className="flex justify-between text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
+                      <span>SC Discount</span>
+                      <span className="font-mono">-₱{(Number(receipt.scDiscount) || 0).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between pt-4 border-t border-pink-50">
@@ -994,8 +983,16 @@ export default function Cashier() {
                     Done
                   </button>
                   <button 
-                    onClick={handlePrint}
-                    className="flex-1 py-4 bg-pink-600 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-pink-700 shadow-lg shadow-pink-200 transition-all active:scale-95"
+                    onClick={() => {
+                      if (receipt) {
+                        exportReceiptPDF({
+                          ...receipt,
+                          discount: receipt.scDiscount || 0,
+                          tax: receipt.tax || 0
+                        }, 80);
+                      }
+                    }}
+                    className="flex-1 py-4 bg-pink-600 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-pink-700 shadow-lg shadow-pink-200 transition-all active:scale-95 cursor-pointer"
                   >
                     Print
                   </button>
