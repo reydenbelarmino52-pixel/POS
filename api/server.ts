@@ -467,7 +467,7 @@ router.get("/inventory/health", authenticateToken, checkStoreAccess, isAdmin, as
 
 // --- PASTE YOUR CUSTOM RECAPTCHA v2 SECRET KEY HERE ---
 // If you don't want to use Vercel environment variables, you can paste your actual Secret Key here:
-const HARDCODED_SECRET_KEY = '6LeIxAcTAAAAAJcZVRqyGUR862MAIDR5tc650p68';
+const HARDCODED_SECRET_KEY = '6LcDDystAAAAAI7fFnvBBTkR8ccCc6mIbwonSlqq';
 
 const verifyRecaptcha = async (token: string): Promise<boolean> => {
   const secretKey = HARDCODED_SECRET_KEY || process.env.RECAPTCHA_SECRET_KEY || '6LcDDystAAAAAI7fFnvBBTkR8ccCc6mIbwonSlqq';
