@@ -465,8 +465,12 @@ router.get("/inventory/health", authenticateToken, checkStoreAccess, isAdmin, as
 // Since get_sold_counts_by_range might not exist, I'll add a check/fallback or create it.
 // I'll update the initSchema to include this RPC.
 
+// --- PASTE YOUR CUSTOM RECAPTCHA v2 SECRET KEY HERE ---
+// If you don't want to use Vercel environment variables, you can paste your actual Secret Key here:
+const HARDCODED_SECRET_KEY = '6LeIxAcTAAAAAJcZVRqyGUR862MAIDR5tc650p68';
+
 const verifyRecaptcha = async (token: string): Promise<boolean> => {
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY || '6LeIxAcTAAAAAGG-vFI1Tn6CDYToSg1';
+  const secretKey = HARDCODED_SECRET_KEY || process.env.RECAPTCHA_SECRET_KEY || '6LeIxAcTAAAAAGG-vFI1Tn6CDYToSg1';
   try {
     const res = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
       method: 'POST',

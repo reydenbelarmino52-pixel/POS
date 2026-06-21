@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
+// --- PASTE YOUR CUSTOM RECAPTCHA v2 SITE KEY HERE ---
+// If you don't want to use Vercel environment variables, you can paste your actual Site Key here:
+const HARDCODED_SITE_KEY = ''; 
+
 interface RecaptchaProps {
   onVerify: (token: string | null) => void;
   resetTrigger?: any;
@@ -34,7 +38,7 @@ export function Recaptcha({ onVerify, resetTrigger }: RecaptchaProps) {
 
       setError(null);
       try {
-        const siteKey = (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string) || '6LeIxAcTAAAAAJcZVRqyGUR862MAIDR5tc650p68';
+        const siteKey = HARDCODED_SITE_KEY || (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string) || '6LeIxAcTAAAAAJcZVRqyGUR862MAIDR5tc650p68';
         
         // If already rendered, reset it, don't re-render
         if (widgetIdRef.current !== null) {
