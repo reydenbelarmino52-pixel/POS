@@ -25,14 +25,78 @@ export interface CartItem extends Product {
   selectedSize?: string;
 }
 
+export function isDrinkProduct(p: { name: string; categoryName?: string }): boolean {
+  const name = p.name.toLowerCase();
+  const cat = (p.categoryName || '').toLowerCase();
+  
+  // Specific milktea flavors/names
+  const milkteaFlavors = [
+    'okinawa', 'wintermelon', 'hokkaido', 'taro', 'matcha', 'milktea', 'milk tea', 
+    'macchiato', 'latte', 'frappe', 'cookies and cream', 'cookies & cream', 'cookies n cream',
+    'dark chocolate', 'salted caramel', 'red velvet', 'hazelnut', 'thai tea', 'brown sugar',
+    'cream cheese', 'rock salt', 'oreo', 'cheesecake', 'yakult'
+  ];
+
+  // If name or category has an explicit milk tea flavor / drink category, classify as drink first
+  const isExplicitMilkteaFlavor = milkteaFlavors.some(flavor => name.includes(flavor));
+  const isExplicitDrinkCategory = ['tea', 'milktea', 'milk tea', 'beverage', 'drink', 'frappe', 'shake', 'smoothie', 'coffee', 'juice'].some(keyword => cat.includes(keyword));
+
+  if (isExplicitMilkteaFlavor || isExplicitDrinkCategory) {
+    // If it has explicitly food terms like Waffle, Burger, Pancake, Cake, Fries, let's keep it as food
+    const foodOverrides = ['waffle', 'burger', 'sandwich', 'fries', 'pasta', 'spaghetti', 'pastry', 'cookie ', 'cookie\n', 'cookie\t'];
+    const hasFoodOverride = foodOverrides.some(fo => {
+      if (fo === 'cookie ') {
+        // Only override if word cookie is standalone and not part of cookies and cream
+        return name.includes('cookie') && !name.includes('cookies and cream') && !name.includes('cookies & cream') && !name.includes('cookies n cream');
+      }
+      return name.includes(fo);
+    });
+    
+    if (!hasFoodOverride) {
+      return true;
+    }
+  }
+
+  // Fallback to keyword classification
+  const drinkKeywords = [
+    'tea', 'coffee', 'frappe', 'shake', 'beverage', 'drink', 'juice', 'smoothie', 
+    'macchiato', 'latte', 'cappuccino', 'espresso', 'matcha', 'soda', 'milk', 'lemonade',
+    'cooler', 'yakult', 'fizz', 'mocha', 'brewed', 'cold brew', 'chocolate', 'cocoa',
+    'milktea', 'beverages', 'drinks', 'smoothies', 'beers', 'wine', 'alcohol', 'water'
+  ];
+  
+  const foodKeywords = [
+    'burger', 'sandwich', 'fries', 'pasta', 'spaghetti', 'waffle', 'snack', 'food', 
+    'side', 'nachos', 'chicken', 'rice', 'meal', 'hotdog', 'pizza', 'donut', 'pastry',
+    'cake', 'shawarma', 'wrap', 'quesadilla', 'bun', 'croissant', 'muffin',
+    'biscuit', 'carbonara', 'pancit', 'lugaw', 'sopas', 'lumpia', 'overload', 'melt',
+    'patty', 'patties', 'sirloin', 'beef', 'pork'
+  ];
+
+  // Specific check for cookies & cream and oreo so it doesn't get flagged as default "cookie" food
+  const isCookiesAndCreamException = name.includes('cookies and cream') || name.includes('cookies & cream') || name.includes('cookies n cream') || name.includes('oreo');
+
+  const hasFoodKeyword = foodKeywords.some(kw => name.includes(kw) || cat.includes(kw)) || (!isCookiesAndCreamException && (name.includes('cookie') || cat.includes('cookie')));
+  if (hasFoodKeyword) {
+    return false;
+  }
+
+  const hasDrinkKeyword = drinkKeywords.some(kw => name.includes(kw) || cat.includes(kw)) || isCookiesAndCreamException;
+  if (hasDrinkKeyword) {
+    return true;
+  }
+
+  return false;
+}
+
 export function usePOS() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isSeniorCitizen, setIsSeniorCitizen] = useState(false);
 
   const addToCart = useCallback((
     product: Product, 
-    sugarLevel: number = 100, 
-    iceLevel: string = 'Normal', 
+    sugarLevel?: number, 
+    iceLevel?: string, 
     addons: Addon[] = [], 
     selectedSize: string = 'Regular',
     priceOverride?: number
@@ -41,10 +105,14 @@ export function usePOS() {
       const addonKey = addons.map(a => a.name).sort().join(',');
       const finalPrice = priceOverride !== undefined ? priceOverride : product.price;
       
+      const isBeverage = isDrinkProduct(product);
+      const sLevel = isBeverage ? (sugarLevel !== undefined ? sugarLevel : 100) : undefined;
+      const iLevel = isBeverage ? (iceLevel !== undefined ? iceLevel : 'Normal') : undefined;
+
       const existing = prev.find(item => 
         item.id === product.id && 
-        item.sugarLevel === sugarLevel && 
-        item.iceLevel === iceLevel &&
+        item.sugarLevel === sLevel && 
+        item.iceLevel === iLevel &&
         item.selectedSize === selectedSize &&
         (item.addons || []).map(a => a.name).sort().join(',') === addonKey
       );
@@ -53,14 +121,14 @@ export function usePOS() {
         if (existing.quantity >= product.stock) return prev;
         return prev.map(item => 
           (item.id === product.id && 
-           item.sugarLevel === sugarLevel && 
-           item.iceLevel === iceLevel &&
+           item.sugarLevel === sLevel && 
+           item.iceLevel === iLevel &&
            item.selectedSize === selectedSize &&
            (item.addons || []).map(a => a.name).sort().join(',') === addonKey
           ) ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { ...product, price: finalPrice, quantity: 1, sugarLevel, iceLevel, addons, selectedSize }];
+      return [...prev, { ...product, price: finalPrice, quantity: 1, sugarLevel: sLevel, iceLevel: iLevel, addons, selectedSize }];
     });
   }, []);
 
@@ -68,8 +136,8 @@ export function usePOS() {
     const addonKey = addons?.map(a => a.name).sort().join(',');
     setCart(prev => prev.filter(item => {
       const match = item.id === productId && 
-                   (sugarLevel === undefined || item.sugarLevel === sugarLevel) &&
-                   (iceLevel === undefined || item.iceLevel === iceLevel) &&
+                   item.sugarLevel === sugarLevel &&
+                   item.iceLevel === iceLevel &&
                    (selectedSize === undefined || item.selectedSize === selectedSize) &&
                    (addonKey === undefined || (item.addons || []).map(a => a.name).sort().join(',') === addonKey);
       return !match;
@@ -80,8 +148,8 @@ export function usePOS() {
     const addonKey = addons?.map(a => a.name).sort().join(',');
     setCart(prev => prev.map(item => {
       const match = item.id === productId && 
-                   (sugarLevel === undefined || item.sugarLevel === sugarLevel) &&
-                   (iceLevel === undefined || item.iceLevel === iceLevel) &&
+                   item.sugarLevel === sugarLevel &&
+                   item.iceLevel === iceLevel &&
                    (selectedSize === undefined || item.selectedSize === selectedSize) &&
                    (addonKey === undefined || (item.addons || []).map(a => a.name).sort().join(',') === addonKey);
       

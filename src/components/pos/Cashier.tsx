@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Minus, Trash2, CreditCard, Banknote, User, Receipt, XCircle, ShoppingCart, Package, ArrowRight, Clock, Unlock, Lock, PhilippinePeso, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { usePOS, Product } from '../../hooks/usePOS';
+import { usePOS, Product, isDrinkProduct } from '../../hooks/usePOS';
 import api from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -517,7 +517,7 @@ export default function Cashier() {
                   initial={{ opacity: 0, x: 20, scale: 0.95 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: -20, scale: 0.95 }}
-                  key={`${item.id}-${item.sugarLevel}`} 
+                  key={`${item.id}-${item.sugarLevel || ''}-${item.iceLevel || ''}-${item.selectedSize || ''}-${(item.addons || []).map(a => a.name).join(',')}`} 
                   className="flex items-center gap-4 bg-white p-4 rounded-3xl border border-pink-50/50 group relative overflow-hidden backdrop-blur-md hover:bg-pink-50/50 transition-all duration-300 shadow-sm"
                 >
                   <div className="w-14 h-14 bg-pink-50 rounded-2xl flex-shrink-0 relative overflow-hidden flex items-center justify-center border border-pink-100">
@@ -715,46 +715,50 @@ export default function Cashier() {
                     </div>
                   )}
 
-                  <div>
-                    <div className="flex justify-between items-center mb-3">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sugar Level</p>
-                      <span className="text-sm font-bold text-pink-600 font-mono">{selectedSugar}%</span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-2">
-                       {[0, 25, 50, 100].map((level) => (
-                         <button 
-                           key={level}
-                           onClick={() => setSelectedSugar(level)}
-                           className={`py-3 rounded-xl text-[10px] font-bold transition-all border
-                              ${selectedSugar === level 
-                                ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
-                                : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
-                           `}
-                         >
-                           {level}
-                         </button>
-                       ))}
-                    </div>
-                  </div>
+                  {isDrinkProduct(customizingProduct) && (
+                    <>
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sugar Level</p>
+                          <span className="text-sm font-bold text-pink-600 font-mono">{selectedSugar}%</span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-2">
+                           {[0, 25, 50, 100].map((level) => (
+                             <button 
+                               key={level}
+                               onClick={() => setSelectedSugar(level)}
+                               className={`py-3 rounded-xl text-[10px] font-bold transition-all border
+                                  ${selectedSugar === level 
+                                    ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
+                                    : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
+                               `}
+                             >
+                               {level}
+                             </button>
+                           ))}
+                        </div>
+                      </div>
 
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Ice Level</p>
-                    <div className="grid grid-cols-4 gap-2">
-                       {['Normal', 'Less', 'No Ice', 'More'].map((level) => (
-                         <button 
-                           key={level}
-                           onClick={() => setSelectedIce(level)}
-                           className={`py-2 rounded-xl text-[9px] font-bold transition-all border
-                              ${selectedIce === level 
-                                ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
-                                : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
-                           `}
-                         >
-                           {level}
-                         </button>
-                       ))}
-                    </div>
-                  </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Ice Level</p>
+                        <div className="grid grid-cols-4 gap-2">
+                           {['Normal', 'Less', 'No Ice', 'More'].map((level) => (
+                             <button 
+                               key={level}
+                               onClick={() => setSelectedIce(level)}
+                               className={`py-2 rounded-xl text-[9px] font-bold transition-all border
+                                  ${selectedIce === level 
+                                    ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-200' 
+                                    : 'bg-pink-50 text-slate-400 border-pink-100 hover:border-pink-300'}
+                               `}
+                             >
+                               {level}
+                             </button>
+                           ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Add-ons</p>
