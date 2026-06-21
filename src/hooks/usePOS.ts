@@ -146,20 +146,29 @@ export function usePOS() {
 
   const updateQuantity = useCallback((productId: string, delta: number, sugarLevel?: number, iceLevel?: string, addons?: Addon[], selectedSize?: string) => {
     const addonKey = addons?.map(a => a.name).sort().join(',');
-    setCart(prev => prev.map(item => {
-      const match = item.id === productId && 
-                   item.sugarLevel === sugarLevel &&
-                   item.iceLevel === iceLevel &&
-                   (selectedSize === undefined || item.selectedSize === selectedSize) &&
-                   (addonKey === undefined || (item.addons || []).map(a => a.name).sort().join(',') === addonKey);
+    setCart(prev => {
+      const idx = prev.findIndex(item => 
+        item.id === productId && 
+        item.sugarLevel === sugarLevel &&
+        item.iceLevel === iceLevel &&
+        (selectedSize === undefined || item.selectedSize === selectedSize) &&
+        (addonKey === undefined || (item.addons || []).map(a => a.name).sort().join(',') === addonKey)
+      );
+      if (idx === -1) return prev;
       
-      if (match) {
-        const newQty = Math.max(1, item.quantity + delta);
-        if (newQty > item.stock) return item;
-        return { ...item, quantity: newQty };
+      const item = prev[idx];
+      const newQty = item.quantity + delta;
+      
+      if (newQty <= 0) {
+        return prev.filter((_, i) => i !== idx);
       }
-      return item;
-    }));
+      
+      if (newQty > item.stock) return prev;
+      
+      const newCart = [...prev];
+      newCart[idx] = { ...item, quantity: newQty };
+      return newCart;
+    });
   }, []);
 
   const clearCart = useCallback(() => {

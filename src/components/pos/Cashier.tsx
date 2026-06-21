@@ -27,6 +27,7 @@ export default function Cashier() {
   const [selectedAddons, setSelectedAddons] = useState<any[]>([]);
   const [productVariants, setProductVariants] = useState<any[]>([]);
   const [selectedSize, setSelectedSize] = useState<string>('Regular');
+  const [justAddedFeedback, setJustAddedFeedback] = useState<string | null>(null);
 
   const { 
     cart, addToCart, removeFromCart, updateQuantity, 
@@ -256,6 +257,7 @@ export default function Cashier() {
     setSelectedAddons([]);
     setSelectedSize('Regular');
     setProductVariants([]);
+    setJustAddedFeedback(null);
 
     try {
       const res = await api.get(`/products/${p.id}/variants`);
@@ -265,12 +267,20 @@ export default function Cashier() {
     }
   };
 
-  const confirmAddToCart = () => {
+  const confirmAddToCart = (keepOpen: boolean = false) => {
     if (customizingProduct) {
       const variant = productVariants.find(v => v.name === selectedSize);
       const finalPrice = variant ? Number(variant.price) : Number(customizingProduct.price);
       addToCart(customizingProduct, selectedSugar, selectedIce, selectedAddons, selectedSize, finalPrice);
-      setCustomizingProduct(null);
+      
+      if (keepOpen) {
+        setJustAddedFeedback(`Added ${selectedSize}!`);
+        setTimeout(() => {
+          setJustAddedFeedback(null);
+        }, 1500);
+      } else {
+        setCustomizingProduct(null);
+      }
     }
   };
 
@@ -549,10 +559,19 @@ export default function Cashier() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center bg-white/50 rounded-xl border border-pink-100 p-1">
-                    <button onClick={() => updateQuantity(item.id, -1, item.sugarLevel, item.iceLevel, item.addons, item.selectedSize)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
-                    <span className="text-xs font-bold w-7 text-center text-slate-700 font-mono">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.id, 1, item.sugarLevel, item.iceLevel, item.addons, item.selectedSize)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-white/50 rounded-xl border border-pink-100 p-1">
+                      <button onClick={() => updateQuantity(item.id, -1, item.sugarLevel, item.iceLevel, item.addons, item.selectedSize)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
+                      <span className="text-xs font-bold w-5 text-center text-slate-700 font-mono">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1, item.sugarLevel, item.iceLevel, item.addons, item.selectedSize)} className="p-1 px-2 hover:bg-pink-50 text-slate-400 hover:text-pink-500 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
+                    </div>
+                    <button 
+                      onClick={() => removeFromCart(item.id, item.sugarLevel, item.iceLevel, item.addons, item.selectedSize)}
+                      className="p-1.5 hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-xl transition-colors duration-200 flex items-center justify-center"
+                      title="Void Item"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </motion.div>
               ))}
@@ -679,6 +698,39 @@ export default function Cashier() {
                    </div>
                    <h3 className="text-xl font-bold text-slate-900 tracking-tight">{customizingProduct.name}</h3>
                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Select Preferences</p>
+
+                    {/* List of currently added configs for this same product */}
+                    {cart.some(item => item.id === customizingProduct.id) && (
+                      <div className="mt-3 flex flex-col gap-1 max-h-24 overflow-y-auto px-3 py-2 bg-slate-50/80 rounded-2xl border border-slate-100/60 text-left">
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mb-1">In Basket:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {cart.filter(item => item.id === customizingProduct.id).map((item, idx) => (
+                            <div key={idx} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-white text-slate-700 rounded-lg border border-slate-200 text-[8px] font-bold shadow-xs">
+                              <span className="text-pink-600">{item.quantity}x</span>
+                              <span>{item.selectedSize || 'Regular'}</span>
+                              {item.sugarLevel !== undefined && <span className="opacity-60 text-[7px] font-medium">({item.sugarLevel}% Sug{item.iceLevel ? `, ${item.iceLevel} Ice` : ''})</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Feedback Toast */}
+                    <AnimatePresence>
+                      {justAddedFeedback && (
+                        <div className="mt-3 flex justify-center">
+                          <motion.div 
+                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                            className="px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-[9px] font-bold uppercase tracking-wider shadow-sm inline-flex items-center gap-1"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            {justAddedFeedback}
+                          </motion.div>
+                        </div>
+                      )}
+                    </AnimatePresence>
                 </div>
 
                 <div className="space-y-6">
@@ -787,17 +839,26 @@ export default function Cashier() {
                   </div>
 
                   <div className="pt-2 space-y-3">
-                    <button 
-                      onClick={confirmAddToCart}
-                      className="w-full py-4 bg-pink-600 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-pink-500 shadow-lg shadow-pink-200 transition-all active:scale-95"
-                    >
-                      Add to Basket
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button 
+                        onClick={() => confirmAddToCart(true)}
+                        className="py-4 bg-pink-50 text-pink-600 border border-pink-100 rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-pink-100/50 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add & More
+                      </button>
+                      <button 
+                        onClick={() => confirmAddToCart(false)}
+                        className="py-4 bg-pink-600 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-pink-500 shadow-lg shadow-pink-200 transition-all active:scale-95 flex items-center justify-center"
+                      >
+                        Add & Close
+                      </button>
+                    </div>
                     <button 
                       onClick={() => setCustomizingProduct(null)}
                       className="w-full py-2 text-slate-400 font-bold uppercase tracking-widest text-[9px] hover:text-slate-600 transition-colors"
                     >
-                      Cancel
+                      Close Customizer
                     </button>
                   </div>
                 </div>
