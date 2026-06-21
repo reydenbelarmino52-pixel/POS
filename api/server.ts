@@ -470,7 +470,7 @@ router.get("/inventory/health", authenticateToken, checkStoreAccess, isAdmin, as
 const HARDCODED_SECRET_KEY = '6LeIxAcTAAAAAJcZVRqyGUR862MAIDR5tc650p68';
 
 const verifyRecaptcha = async (token: string): Promise<boolean> => {
-  const secretKey = HARDCODED_SECRET_KEY || process.env.RECAPTCHA_SECRET_KEY || '6LeIxAcTAAAAAGG-vFI1Tn6CDYToSg1';
+  const secretKey = HARDCODED_SECRET_KEY || process.env.RECAPTCHA_SECRET_KEY || '6LcDDystAAAAAI7fFnvBBTkR8ccCc6mIbwonSlqq';
   try {
     const res = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
       method: 'POST',
