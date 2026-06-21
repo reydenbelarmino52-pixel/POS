@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 // --- PASTE YOUR CUSTOM RECAPTCHA v2 SITE KEY HERE ---
 // If you don't want to use Vercel environment variables, you can paste your actual Site Key here:
-const HARDCODED_SITE_KEY = ''; 
+const HARDCODED_SITE_KEY = '6LcDDystAAAAABNvY5Q-l5mr0ychY3wQ3wan8mFG'; 
 
 interface RecaptchaProps {
   onVerify: (token: string | null) => void;
