@@ -4,6 +4,7 @@ import api from '../lib/api';
 import { ShoppingCart, Lock, User, AlertCircle, Mail, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { z } from 'zod';
+import { Recaptcha } from './Recaptcha';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -27,6 +28,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [recaptchaResetKey, setRecaptchaResetKey] = useState(0);
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,12 +49,17 @@ export default function Login() {
       return;
     }
 
+    if (!recaptchaToken) {
+      setError('Please complete the reCAPTCHA verification');
+      return;
+    }
+
     setLoading(true);
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/signup';
       const payload = isLogin 
-        ? { username, password }
-        : { username, email, password };
+        ? { username, password, recaptchaToken }
+        : { username, email, password, recaptchaToken };
       
       const res = await api.post(endpoint, payload);
       
@@ -63,11 +71,17 @@ export default function Login() {
         setPassword('');
         setConfirmPassword('');
         setEmail('');
+        setRecaptchaToken(null);
+        setRecaptchaResetKey(prev => prev + 1);
       }
     } catch (err: any) {
       console.error('Submission error:', err);
       let apiError: string = 'Connection failed';
       
+      // Force reset recaptcha challenge on failure so user has to verify again
+      setRecaptchaToken(null);
+      setRecaptchaResetKey(prev => prev + 1);
+
       if (err.response?.data) {
         const data = err.response.data;
         if (typeof data === 'string') {
@@ -117,13 +131,13 @@ export default function Login() {
 
           <div className="flex bg-slate-50 p-1.5 rounded-2xl mb-8">
             <button 
-              onClick={() => { setIsLogin(true); setSuccess(''); setError(''); }}
+              onClick={() => { setIsLogin(true); setSuccess(''); setError(''); setRecaptchaToken(null); setRecaptchaResetKey(prev => prev + 1); }}
               className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${isLogin ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Sign In
             </button>
             <button 
-              onClick={() => { setIsLogin(false); setSuccess(''); setError(''); }}
+              onClick={() => { setIsLogin(false); setSuccess(''); setError(''); setRecaptchaToken(null); setRecaptchaResetKey(prev => prev + 1); }}
               className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${!isLogin ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Register
@@ -146,13 +160,15 @@ export default function Login() {
             )}
 
             <div className="space-y-3">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Username</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">
+                {isLogin ? 'Username or Email' : 'Username'}
+              </label>
               <div className="relative">
                 <User className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                 <input 
                   type="text"
                   required
-                  placeholder="Choose username"
+                  placeholder={isLogin ? "Enter your username or email" : "Choose username (min 3 chars)"}
                   className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-mono text-sm placeholder:text-slate-300 tracking-wider"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -186,7 +202,7 @@ export default function Login() {
                 <input 
                   type="password"
                   required
-                  placeholder="••••••••"
+                  placeholder={isLogin ? "••••••••" : "Choose password (min 6 chars)"}
                   className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-mono text-sm placeholder:text-slate-300 tracking-widest"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -211,12 +227,14 @@ export default function Login() {
               </div>
             )}
 
+            <Recaptcha onVerify={setRecaptchaToken} resetTrigger={recaptchaResetKey} />
+
             <button 
               type="submit"
               disabled={loading}
               className="w-full py-5 bg-pink-500 text-white rounded-2xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-pink-400 disabled:bg-slate-100 disabled:text-slate-300 transition-all shadow-xl shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 mt-6"
             >
-              {loading ? (isLogin ? 'Authenticating...' : 'Creating Account...') : (isLogin ? 'Login' : 'Signup')}
+              {loading ? (isLogin ? 'Authenticating...' : 'Creating Account...') : (isLogin ? 'Sign In' : 'Register & Join')}
             </button>
           </form>
 

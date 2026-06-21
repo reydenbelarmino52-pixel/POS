@@ -16,7 +16,7 @@ export default function Cashier() {
   const [loading, setLoading] = useState(true);
   const [currentShift, setCurrentShift] = useState<any>(null);
   const [paymentModal, setPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
+  const [paymentMethod] = useState<'cash'>('cash');
   const [isProcessing, setIsProcessing] = useState(false);
   const [amountReceived, setAmountReceived] = useState<string>('');
   
@@ -60,10 +60,9 @@ export default function Cashier() {
   }, [amountReceived, total]);
 
   const isAmountSufficient = useMemo(() => {
-    if (paymentMethod === 'card') return true;
     const received = parseFloat(amountReceived);
     return !isNaN(received) && received >= total;
-  }, [paymentMethod, amountReceived, total]);
+  }, [amountReceived, total]);
 
   useEffect(() => {
     fetchProducts();
@@ -838,30 +837,14 @@ export default function Cashier() {
                 </div>
 
                 <div className="space-y-6">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Payment Channel</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button 
-                      onClick={() => setPaymentMethod('cash')}
-                      className={`flex flex-col items-center gap-3 p-6 rounded-3xl border-2 transition-all
-                        ${paymentMethod === 'cash' ? 'border-pink-600 bg-white shadow-lg shadow-pink-100' : 'border-slate-50 bg-slate-50 hover:border-pink-200'}
-                      `}
-                    >
-                      <div className={`p-3 rounded-2xl ${paymentMethod === 'cash' ? 'bg-pink-600 text-white' : 'bg-white text-slate-300'}`}>
-                        <Banknote className="w-6 h-6" />
-                      </div>
-                      <span className="font-bold text-[11px] uppercase tracking-widest text-slate-900">Cash</span>
-                    </button>
-                    <button 
-                      onClick={() => setPaymentMethod('card')}
-                      className={`flex flex-col items-center gap-3 p-6 rounded-3xl border-2 transition-all
-                        ${paymentMethod === 'card' ? 'border-pink-600 bg-white shadow-lg shadow-pink-100' : 'border-slate-50 bg-slate-50 hover:border-pink-200'}
-                      `}
-                    >
-                      <div className={`p-3 rounded-2xl ${paymentMethod === 'card' ? 'bg-pink-600 text-white' : 'bg-white text-slate-300'}`}>
-                        <CreditCard className="w-6 h-6" />
-                      </div>
-                      <span className="font-bold text-[11px] uppercase tracking-widest text-slate-900">Card</span>
-                    </button>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Payment Method</p>
+                  <div className="px-5 py-4 bg-pink-50/50 border border-pink-100 rounded-2xl flex items-center gap-3 shadow-inner">
+                    <div className="p-2.5 bg-pink-600 text-white rounded-xl">
+                      <Banknote className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-[11px] uppercase tracking-wider text-slate-800">Cash Payment</p>
+                    </div>
                   </div>
                 </div>
 

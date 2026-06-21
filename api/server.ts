@@ -32,6 +32,22 @@ const initSchema = async () => {
           ALTER TABLE sales ADD COLUMN started_at TIMESTAMP WITH TIME ZONE;
         END IF;
 
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='sale_items' AND COLUMN_NAME='sugar_level') THEN
+          ALTER TABLE sale_items ADD COLUMN sugar_level INTEGER;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='sale_items' AND COLUMN_NAME='ice_level') THEN
+          ALTER TABLE sale_items ADD COLUMN ice_level TEXT;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='sale_items' AND COLUMN_NAME='size') THEN
+          ALTER TABLE sale_items ADD COLUMN size TEXT;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='sale_items' AND COLUMN_NAME='addons') THEN
+          ALTER TABLE sale_items ADD COLUMN addons TEXT[];
+        END IF;
+
         -- Create product_ingredients table
         CREATE TABLE IF NOT EXISTS product_ingredients (
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -449,6 +465,23 @@ router.get("/inventory/health", authenticateToken, checkStoreAccess, isAdmin, as
 // Since get_sold_counts_by_range might not exist, I'll add a check/fallback or create it.
 // I'll update the initSchema to include this RPC.
 
+const verifyRecaptcha = async (token: string): Promise<boolean> => {
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY || '6LeIxAcTAAAAAGG-vFI1Tn6CDYToSg1';
+  try {
+    const res = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `secret=${encodeURIComponent(secretKey)}&response=${encodeURIComponent(token)}`
+    });
+    const result = await res.json() as any;
+    console.log("reCAPTCHA validation result:", result);
+    return !!result.success;
+  } catch (err) {
+    console.error("reCAPTCHA validation failed with error:", err);
+    return false;
+  }
+};
+
 router.post("/auth/signup",
   [
     body('username').isString().trim().notEmpty(),
@@ -457,10 +490,19 @@ router.post("/auth/signup",
     validate
   ],
   async (req: any, res: any) => {
-    const { username, password } = req.body;
+    const { username, password, recaptchaToken } = req.body;
     const email = String(req.body.email || '').toLowerCase().trim();
     
     console.log("Signup attempt received - username:", username, "email:", email);
+
+    if (!recaptchaToken) {
+      return res.status(400).json({ error: "reCAPTCHA verification is required" });
+    }
+
+    const isHuman = await verifyRecaptcha(recaptchaToken);
+    if (!isHuman) {
+      return res.status(400).json({ error: "reCAPTCHA verification failed. Please try again." });
+    }
     
     // Check case-insensitively using check_user_exists_v1 RPC to bypass any RLS limits
     let usernameExists = false;
@@ -714,7 +756,16 @@ router.post("/auth/login",
     validate
   ],
   async (req: any, res: any) => {
-    const { username, password } = req.body;
+    const { username, password, recaptchaToken } = req.body;
+
+    if (!recaptchaToken) {
+      return res.status(400).json({ error: "reCAPTCHA verification is required" });
+    }
+
+    const isHuman = await verifyRecaptcha(recaptchaToken);
+    if (!isHuman) {
+      return res.status(400).json({ error: "reCAPTCHA verification failed. Please try again." });
+    }
     
     // Support username as either username or email
     let emailToAuth = "";
@@ -1372,7 +1423,7 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
       }
 
       // Record items sold
-      await supabase.from('sale_items').insert([{
+      const { error: itemInsertError } = await supabase.from('sale_items').insert([{
         sale_id: sale.id,
         store_id: req.storeId,
         product_id: item.id,
@@ -1383,6 +1434,10 @@ router.post("/sales", authenticateToken, checkStoreAccess, async (req: any, res:
         size: item.size,
         addons: item.addons
       }]);
+
+      if (itemInsertError) {
+        console.error("Error inserting sale_item to database:", itemInsertError);
+      }
 
       // Log inventory change
       await supabase.from('inventory_logs').insert([{
