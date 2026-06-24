@@ -89,7 +89,7 @@ export default function SelectStore() {
             <img src="https://cdn.corenexis.com/f/xT3JmIu4IAN.jpg" alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 uppercase tracking-tight">Select Branch</h1>
-          <p className="text-slate-400 font-semibold text-[10px] uppercase tracking-[0.2em] mt-2">Manage and choose your location</p>
+          <p className="text-slate-900 font-bold text-[10px] uppercase tracking-[0.2em] mt-2">Manage and choose your location</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -106,7 +106,7 @@ export default function SelectStore() {
                 {editingId === s.id ? (
                   <div className="p-6 bg-white border-2 border-pink-300 rounded-3xl shadow-xl space-y-4">
                     <div className="space-y-2">
-                       <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Branch Name</label>
+                       <label className="text-[9px] font-black text-slate-950 uppercase tracking-widest px-1">Branch Name</label>
                        <input 
                          autoFocus
                          className="w-full bg-slate-50 border border-slate-100 p-3 rounded-xl font-bold text-slate-900 uppercase tracking-tight text-sm outline-none focus:ring-2 focus:ring-pink-500/20"
@@ -116,7 +116,7 @@ export default function SelectStore() {
                     </div>
                     <div className="space-y-2">
                        <div className="flex justify-between items-center px-1">
-                         <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Shift Code</label>
+                         <label className="text-[9px] font-black text-slate-950 uppercase tracking-widest">Shift Code</label>
                          {editPin && (editPin.length < 4 || editPin.length > 8) && (
                            <span className="text-[8px] font-bold text-rose-500 uppercase tracking-tighter">4-8 digits required</span>
                          )}
@@ -143,7 +143,7 @@ export default function SelectStore() {
                       >
                         <Check className="w-4 h-4" /> Save
                       </button>
-                      <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 transition-colors flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
+                      <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-slate-100 text-slate-950 font-black rounded-xl hover:bg-slate-200 transition-colors flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
                         <X className="w-4 h-4" /> Cancel
                       </button>
                     </div>
@@ -161,7 +161,7 @@ export default function SelectStore() {
                       </div>
                       <div>
                         <p className="font-bold text-slate-900 uppercase tracking-tight">{s.name}</p>
-                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest mt-0.5">Active Branch</p>
+                        <p className="text-[10px] text-slate-900 font-bold uppercase tracking-widest mt-0.5">Active Branch</p>
                       </div>
                     </div>
                     
@@ -193,7 +193,7 @@ export default function SelectStore() {
             className="flex items-center justify-center gap-3 p-6 bg-white border-2 border-dashed border-slate-200 rounded-3xl hover:border-pink-300 hover:bg-pink-50 transition-all group lg:min-h-[96px]"
           >
             <Plus className="w-5 h-5 text-slate-300 group-hover:text-pink-500" />
-            <span className="font-semibold text-slate-400 group-hover:text-pink-500 uppercase tracking-widest text-[11px]">Add New Branch</span>
+            <span className="font-bold text-slate-900 group-hover:text-pink-500 uppercase tracking-widest text-[11px]">Add New Branch</span>
           </motion.button>
         </div>
 
@@ -207,7 +207,7 @@ export default function SelectStore() {
               </div>
               <div className="text-left">
                 <p className="text-xs font-bold text-slate-900 uppercase tracking-tight">Join an Existing Branch</p>
-                <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Enter branch name and join code</p>
+                <p className="text-[10px] text-slate-950 font-bold uppercase tracking-widest">Enter branch name and join code</p>
               </div>
            </button>
         </div>
@@ -237,7 +237,7 @@ export default function SelectStore() {
 
                 <div className="mb-8">
                   <h2 className="text-2xl font-bold text-slate-900 uppercase tracking-tight mb-2">Join Branch</h2>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Request access to an existing location</p>
+                  <p className="text-[10px] text-slate-950 font-black uppercase tracking-widest">Request access to an existing location</p>
                 </div>
 
                 <form onSubmit={handleJoin} className="space-y-6">
@@ -248,7 +248,7 @@ export default function SelectStore() {
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Branch Name</label>
+                    <label className="text-[10px] font-black text-slate-950 uppercase tracking-widest px-2">Branch Name</label>
                     <input 
                       type="text"
                       required
@@ -260,7 +260,7 @@ export default function SelectStore() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Join Code</label>
+                    <label className="text-[10px] font-black text-slate-950 uppercase tracking-widest px-2">Join Code</label>
                     <input 
                       type="text"
                       required
@@ -287,7 +287,7 @@ export default function SelectStore() {
         <div className="mt-10 pt-10 border-t border-slate-100 text-center">
           <button 
             onClick={logout}
-            className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-pink-500 transition-colors"
+            className="text-[10px] font-black text-slate-950 uppercase tracking-widest hover:text-pink-500 transition-colors"
           >
             Sign Out
           </button>

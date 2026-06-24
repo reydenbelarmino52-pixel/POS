@@ -9,6 +9,7 @@ export interface Product {
   categoryId?: string;
   categoryName?: string;
   imageUrl?: string;
+  low_stock_threshold?: number;
 }
 
 export interface Addon {

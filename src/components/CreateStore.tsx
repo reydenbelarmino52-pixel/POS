@@ -38,7 +38,7 @@ export default function CreateStore() {
       >
         <button 
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-pink-500 transition-colors mb-10"
+          className="flex items-center gap-2 text-[10px] font-black text-slate-950 uppercase tracking-widest hover:text-pink-500 transition-colors mb-10"
         >
           <ArrowLeft className="w-3 h-3" />
           Back to Store List
@@ -49,17 +49,17 @@ export default function CreateStore() {
             <img src="https://cdn.corenexis.com/f/xT3JmIu4IAN.jpg" alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 uppercase tracking-tight">Add New Store</h1>
-          <p className="text-slate-400 font-semibold text-[10px] uppercase tracking-[0.2em] mt-2">Initialize your next business location</p>
+          <p className="text-slate-900 font-bold text-[10px] uppercase tracking-[0.2em] mt-2">Initialize your next business location</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-3">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Store Name</label>
+            <label className="text-[10px] font-black text-slate-950 uppercase tracking-widest px-2">Store Name</label>
             <input 
               type="text"
               required
               placeholder="e.g. Cathtea - Downtown Branch"
-              className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-bold text-sm placeholder:text-slate-300 placeholder:font-normal uppercase tracking-tight"
+              className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:bg-white transition-all text-slate-900 font-bold text-sm placeholder:text-slate-500 placeholder:font-normal uppercase tracking-tight"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -67,14 +67,14 @@ export default function CreateStore() {
 
           <div className="space-y-3">
             <div className="flex justify-between items-center px-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Shift Security Pin (4-8 digits)</label>
+              <label className="text-[10px] font-black text-slate-950 uppercase tracking-widest">Shift Security Pin (4-8 digits)</label>
             </div>
             <div className="relative group">
               <input 
                 type="text"
                 required
                 placeholder="e.g. 1234"
-                className={`w-full px-6 py-5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-slate-900 font-mono text-sm placeholder:text-slate-300 placeholder:font-normal tracking-widest ${
+                className={`w-full px-6 py-5 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-2 transition-all text-slate-900 font-mono text-sm placeholder:text-slate-500 placeholder:font-normal tracking-widest ${
                   shiftPin && (shiftPin.length < 4 || shiftPin.length > 8) 
                     ? 'border-rose-200 focus:ring-rose-500/50 text-rose-600' 
                     : shiftPin.length >= 4
@@ -101,7 +101,7 @@ export default function CreateStore() {
               ))}
             </div>
             <p className={`text-[9px] font-bold uppercase tracking-widest mt-2 px-2 transition-colors ${
-              shiftPin && (shiftPin.length < 4 || shiftPin.length > 8) ? 'text-rose-500' : 'text-slate-400'
+              shiftPin && (shiftPin.length < 4 || shiftPin.length > 8) ? 'text-rose-500' : 'text-slate-900 font-black'
             }`}>
               {shiftPin.length === 0 
                 ? 'Store access code required' 

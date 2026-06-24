@@ -16,7 +16,7 @@ import AdminActions from './components/admin/AdminActions';
 function PrivateRoute({ children, role }: { children: React.ReactNode, role?: string }) {
   const { user, currentStore, isLoading } = useAuth();
   
-  if (isLoading) return <div className="flex items-center justify-center min-h-screen font-bold text-slate-500 uppercase tracking-[0.5em]">Initializing Cathtea POS...</div>;
+  if (isLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-950 uppercase tracking-[0.5em]">Initializing Cathtea POS...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (!currentStore) return <Navigate to="/select-store" replace />;
   
